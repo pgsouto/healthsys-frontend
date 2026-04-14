@@ -1,0 +1,285 @@
+{
+  "patients": [
+    {
+      "id": "1",
+      "name": "João Silva",
+      "cpf": "123.456.789-00",
+      "dataNasc": "1980-05-15",
+      "telefone": "(11) 98888-7777"
+    },
+    {
+      "id": "2",
+      "name": "Maria Oliveira",
+      "cpf": "987.654.321-11",
+      "dataNasc": "1992-10-20",
+      "telefone": "(21) 97777-6666"
+    },
+    {
+      "id": "3",
+      "name": "Carlos Pereira",
+      "cpf": "456.789.123-22",
+      "dataNasc": "1975-03-30",
+      "telefone": "(31) 96666-5555"
+    },
+    {
+      "id": "4",
+      "name": "Ana Costa",
+      "cpf": "321.654.987-33",
+      "dataNasc": "1988-07-25",
+      "telefone": "(41) 95555-4444"
+    },
+    {
+      "id": "5",
+      "name": "Pedro Santos",
+      "cpf": "654.321.987-44",
+      "dataNasc": "1995-12-10",
+      "telefone": "(51) 94444-3333"
+    },
+    {
+      "id": "6",
+      "name": "Luciana Almeida",
+      "cpf": "789.123.456-55",
+      "dataNasc": "1983-09-05",
+      "telefone": "(61) 93333-2222"
+    },
+    {
+      "id": "7",
+      "name": "Rafael Gomes",
+      "cpf": "321.987.654-66",
+      "dataNasc": "1990-11-18",
+      "telefone": "(71) 92222-1111"
+    },
+    {
+      "id": "8",
+      "name": "Fernanda Rodrigues",
+      "cpf": "987.321.654-77",
+      "dataNasc": "1985-02-28",
+      "telefone": "(81) 91111-0000"
+    },
+    {
+      "id": "9",
+      "name": "Bruno Martins",
+      "cpf": "654.987.321-88",
+      "dataNasc": "1993-06-12",
+      "telefone": "(91) 90000-9999"
+    },
+    {
+      "id": "10",
+      "name": "Carla Ferreira",
+      "cpf": "123.789.456-99",
+      "dataNasc": "1987-08-22",
+      "telefone": "(101) 98888-8888"
+    },
+    {
+      "id": "11",
+      "name": "Eduardo Lima",
+      "cpf": "789.456.123-00",
+      "dataNasc": "1991-04-10",
+      "telefone": "(111) 97777-7777"
+    },
+    {
+      "id": "12",
+      "name": "Mariana Souza",
+      "cpf": "456.123.789-11",
+      "dataNasc": "1984-12-05",
+      "telefone": "(121) 96666-6666"
+    },
+    {
+      "id": "13",
+      "name": "Felipe Barbosa",
+      "cpf": "321.654.987-22",
+      "dataNasc": "1996-09-15",
+      "telefone": "(131) 95555-5555"
+    },
+    {
+      "id": "15",
+      "name": "Gustavo Carvalho",
+      "cpf": "654.987.321-44",
+      "dataNasc": "1994-07-30",
+      "telefone": "(151) 93333-3333"
+    },
+    {
+      "id": "16",
+      "name": "Isabela Mendes",
+      "cpf": "123.789.456-55",
+      "dataNasc": "1986-11-25",
+      "telefone": "(161) 92222-2222"
+    },
+    {
+      "id": "17",
+      "name": "Ricardo Santos",
+      "cpf": "789.456.123-66",
+      "dataNasc": "1992-05-18",
+      "telefone": "(171) 91111-1111"
+    },
+    {
+      "id": "18",
+      "name": "Camila Ferreira",
+      "cpf": "456.123.789-77",
+      "dataNasc": "1983-08-10",
+      "telefone": "(181) 90000-0000"
+    },
+    {
+      "id": "19",
+      "name": "Bruna Oliveira",
+      "cpf": "321.654.987-88",
+      "dataNasc": "1990-02-14",
+      "telefone": "(191) 98888-7777"
+    },
+    {
+      "id": "20",
+      "name": "Lucas Almeida",
+      "cpf": "987.321.654-99",
+      "dataNasc": "1988-06-05",
+      "telefone": "(201) 97777-6666"
+    },
+    {
+      "id": "21",
+      "name": "Sofia Costa",
+      "cpf": "654.987.321-00",
+      "dataNasc": "1995-10-20",
+      "telefone": "(211) 96666-5555"
+    },
+    {
+      "id": "22",
+      "name": "Matheus Pereira",
+      "cpf": "123.789.456-11",
+      "dataNasc": "1987-03-30",
+      "telefone": "(221) 95555-4444"
+    },
+    {
+      "id": "23",
+      "name": "Larissa Rodrigues",
+      "cpf": "789.456.123-22",
+      "dataNasc": "1993-12-10",
+      "telefone": "(231) 94444-3333"
+    },
+    {
+      "id": "24",
+      "name": "Thiago Gomes",
+      "cpf": "456.123.789-33",
+      "dataNasc": "1984-09-05",
+      "telefone": "(241) 93333-2222"
+    },
+    {
+      "id": "25",
+      "name": "Amanda Martins",
+      "cpf": "321.654.987-44",
+      "dataNasc": "1991-11-18",
+      "telefone": "(251) 92222-1111"
+    },
+    {
+      "id": "26",
+      "name": "Gustavo Ribeiro",
+      "cpf": "987.321.654-55",
+      "dataNasc": "1985-02-28",
+      "telefone": "(261) 91111-0000"
+    },
+    {
+      "id": "27",
+      "name": "Isabela Carvalho",
+      "cpf": "654.987.321-66",
+      "dataNasc": "1990-06-12",
+      "telefone": "(271) 90000-9999"
+    },
+    {
+      "id": "28",
+      "name": "Ricardo Mendes",
+      "cpf": "123.789.456-77",
+      "dataNasc": "1987-08-22",
+      "telefone": "(281) 98888-8888"
+    },
+    {
+      "id": "29",
+      "name": "Camila Santos",
+      "cpf": "789.456.123-88",
+      "dataNasc": "1991-04-10",
+      "telefone": "(291) 97777-7777"
+    },
+    {
+      "id": "30",
+      "name": "Bruna Lima",
+      "cpf": "456.123.789-99",
+      "dataNasc": "1984-12-05",
+      "telefone": "(301) 96666-6666"
+    },
+    {
+      "name": "ROLEIRO AMEIRO",
+      "cpf": "024.222.111-00",
+      "dataNasc": "2026-02-03",
+      "telefone": "(89) 98877-8888",
+      "id": "c052"
+    },
+    {
+      "id": "4af6",
+      "name": "Maickon Brenner",
+      "cpf": "888.999.111-00",
+      "dataNasc": "2026-04-08",
+      "telefone": "85 9 9999-9999"
+    }
+  ],
+  "medical_records": [
+    {
+      "id": "1001",
+      "patientId": "1",
+      "date": "2026-01-10",
+      "description": "Paciente relata dor de cabeça persistente. Prescrito repouso e hidratação.",
+      "doctor": "Dra. Ana Paula"
+    },
+    {
+      "id": "1002",
+      "patientId": "1",
+      "date": "2026-02-01",
+      "description": "Retorno para avaliação. Sintomas de enxaqueca diminuíram.",
+      "doctor": "Dra. Ana Paula"
+    },
+    {
+      "id": "1003",
+      "patientId": "2",
+      "date": "2026-01-15",
+      "description": "Check-up de rotina. Exames de sangue solicitados.",
+      "doctor": "Dr. Roberto"
+    },
+    {
+      "id": "1004",
+      "patientId": null,
+      "date": "2026-02-04",
+      "description": "Primeira consulta. Paciente apresenta quadro de alergia sazonal.",
+      "doctor": "Dr. Roberto"
+    }
+  ],
+  "appointments": [
+    {
+      "id": "101",
+      "staffId": 1,
+      "date": "2026-02-10",
+      "time": "08:00",
+      "patient": "João Vital",
+      "status": "Confirmado"
+    },
+    {
+      "id": "104",
+      "staffId": 1,
+      "date": "2026-02-10",
+      "time": "10:00",
+      "patient": "Maria Clara",
+      "status": "Aguardando"
+    },
+    {
+      "id": "103",
+      "staffId": 2,
+      "date": "2026-02-10",
+      "time": "11:00",
+      "patient": "Carlos Pereira",
+      "status": "Cancelado"
+    },
+    {
+      "id": "102",
+      "staffId": 1,
+      "date": "2026-02-11",
+      "time": "09:00",
+      "patient": "Maria Clara",
+      "status": "Aguardando"
+    }
+  ]
+}
