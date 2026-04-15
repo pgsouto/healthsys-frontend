@@ -21,6 +21,22 @@ const headCells = [
   { id: 'actions', label: 'Acoes', numeric: true },
 ];
 
+// Formata "YYYY-MM-DD" (ou "YYYY-MM-DDTHH:mm:ss...") para "DD/MM/YYYY"
+// sem usar new Date(), evitando bug de fuso horario.
+const formatDateBR = (isoDate) => {
+  if (!isoDate) return '-';
+  const datePart = String(isoDate).slice(0, 10);
+  const [y, m, d] = datePart.split('-');
+  if (!y || !m || !d) return '-';
+  return `${d}/${m}/${y}`;
+};
+
+// Garante valor compativel com input type="date"
+const normalizeDateInput = (value) => {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+};
+
 const Patients = () => {
   const navigate = useNavigate();
 
@@ -113,7 +129,7 @@ const Patients = () => {
       nome: data.nome,
       nomeSocial: data.nomeSocial || null,
       cpf: data.cpf,
-      dataNascimento: data.dataNascimento,
+      dataNascimento: data.dataNascimento, // YYYY-MM-DD do input date
       sexo: Number(data.sexoId),
       genero: Number(data.generoId),
       telefones: [data.tel1, data.tel2].filter(Boolean),
@@ -179,11 +195,7 @@ const Patients = () => {
           <>
             <TableCell>{row.nome}</TableCell>
             <TableCell>{row.cpf}</TableCell>
-            <TableCell>
-              {row.dataNascimento
-                ? new Date(row.dataNascimento).toLocaleDateString('pt-BR')
-                : '-'}
-            </TableCell>
+            <TableCell>{formatDateBR(row.dataNascimento)}</TableCell>
             <TableCell>{row.telefones?.[0] || 'N/A'}</TableCell>
             <TableCell align="right">
               <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -241,7 +253,7 @@ const Patients = () => {
                 type="date"
                 fullWidth
                 InputLabelProps={{ shrink: true }}
-                defaultValue={selectedPatient?.dataNascimento || ''}
+                defaultValue={normalizeDateInput(selectedPatient?.dataNascimento)}
                 required
               />
             </Stack>
