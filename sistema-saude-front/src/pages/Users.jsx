@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, Typography, Button, Dialog, DialogTitle, DialogContent, 
-  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Box, Typography, Button, Dialog, DialogTitle, DialogContent,
+  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
@@ -12,49 +11,56 @@ import GenericTable from '../components/GenericTable';
 
 const headCells = [
   { id: 'nome', label: 'Nome Completo' },
-  { id: 'email', label: 'E-mail / Login' }, // Ajustado para bater com seu JSON
-  { id: 'permissao', label: 'Permissão' },
-  { id: 'actions', label: 'Ações', numeric: true },
+  { id: 'email', label: 'E-mail / Login' },
+  { id: 'permissao', label: 'Permissao' },
+  { id: 'actions', label: 'Acoes', numeric: true },
 ];
 
 const Users = () => {
-  const [users, setUsers] = useState([]); 
-  const [roles, setRoles] = useState([]); 
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0); 
+  const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 1. Busca de Usuários - Ajustado para usar a URL do Back
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const url = searchTerm ? `/auth/usuarios?nome=${searchTerm}` : '/auth/usuarios';
+        const url = searchTerm
+          ? `/auth/usuarios?nome=${encodeURIComponent(searchTerm)}`
+          : '/auth/usuarios';
         const response = await api.get(url);
         setUsers(response.data);
       } catch (error) {
-        console.error("Erro ao buscar usuários:", error);
+        console.error('Erro ao buscar usuarios:', error);
       }
     };
     fetchUsers();
   }, [refreshKey, searchTerm]);
 
-  // 2. Busca de Permissões
   useEffect(() => {
     const fetchRoles = async () => {
       try {
-        const response = await api.get('/perfis'); 
+        const response = await api.get('/auth/perfis');
         setRoles(response.data);
       } catch (error) {
-        console.error("Erro ao buscar permissões:", error);
+        console.error('Erro ao buscar permissoes:', error);
       }
     };
     fetchRoles();
   }, []);
 
+  const selectedRoleId = useMemo(() => {
+    if (!selectedUser?.perfil || roles.length === 0) return '';
+    const perfilNormalizado = String(selectedUser.perfil).trim().toLowerCase();
+    const role = roles.find(
+      (r) => String(r.descricao || '').trim().toLowerCase() === perfilNormalizado
+    );
+    return role?.id ?? '';
+  }, [selectedUser, roles]);
+
   const handleOpen = (user = null) => {
-    // Se estiver editando, precisamos garantir que o valor do Select seja o ID (Integer)
-    // Se o seu 'row' da tabela não traz o ID do perfil, você precisará tratar isso aqui
     setSelectedUser(user);
     setOpen(true);
   };
@@ -64,42 +70,74 @@ const Users = () => {
     setSelectedUser(null);
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Deseja realmente excluir este usuario?')) return;
+    try {
+      await api.delete(`/auth/usuarios/${id}`);
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Erro ao deletar:', error.response?.data || error);
+      alert(error.response?.data?.message || 'Erro ao deletar usuario.');
+    }
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const data = Object.fromEntries(formData.entries());
 
-    // PAYLOAD EXATO PARA O SPRING
+    const perfilId = Number(data.perfil);
+    if (!Number.isInteger(perfilId) || perfilId <= 0) {
+      alert('Selecione uma permissao valida.');
+      return;
+    }
+
     const payload = {
-        nome: data.nome,
-        email: data.email, // Nome do campo conforme seu JSON de Response/Request
-        dataNascimento: "2000-01-01", 
-        senha: data.password || undefined, // Não envia senha se estiver vazio na edição
-        perfil: parseInt(data.perfil) // Envia o ID (1, 2, etc)
+      nome: data.nome,
+      email: data.email,
+      dataNascimento: data.dataNascimento,
+      perfil: perfilId,
     };
 
-    try {
-        if (selectedUser?.id) {
-            await api.put(`/auth/usuarios/${selectedUser.id}`, payload);
-        } else {
-            await api.post('/auth/usuarios', payload);
-        }
-        setRefreshKey(prev => prev + 1);
-        handleClose();
-    } catch (error) {
-        console.error("Erro detalhado:", error.response?.data);
-        alert(error.response?.data?.message || "Erro ao salvar usuário.");
+    if (!selectedUser?.id || (data.password && data.password.trim() !== '')) {
+      payload.senha = data.password;
     }
+
+    try {
+      if (selectedUser?.id) {
+        await api.put(`/auth/usuarios/${selectedUser.id}`, payload);
+      } else {
+        await api.post('/auth/usuarios', payload);
+      }
+      setRefreshKey((prev) => prev + 1);
+      handleClose();
+    } catch (error) {
+    console.error("status:", error.response?.status);
+    console.error("data:", error.response?.data);
+    console.error("url:", error.config?.url);
+    alert(error.response?.data?.message || error.message || "Erro ao salvar usuario.");
+  }
+
   };
 
   return (
     <Box sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Usuários</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          Usuarios
+        </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-          Novo Usuário
+          Novo Usuario
         </Button>
       </Stack>
+
+      <TextField
+        size="small"
+        label="Buscar por nome"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        sx={{ mb: 2, minWidth: 280 }}
+      />
 
       <GenericTable
         headCells={headCells}
@@ -107,45 +145,55 @@ const Users = () => {
         renderRow={(row) => (
           <>
             <TableCell>{row.nome}</TableCell>
-            <TableCell>{row.email}</TableCell> {/* Ajustado: era username */}
-            <TableCell>{row.perfil}</TableCell> {/* Exibe "ADMIN" ou "USER" */}
+            <TableCell>{row.email}</TableCell>
+            <TableCell>{row.perfil}</TableCell>
             <TableCell align="right">
-              <IconButton color="primary" onClick={() => handleOpen(row)}><EditIcon /></IconButton>
-              <IconButton color="error" onClick={() => console.log("Delete", row.id)}><DeleteIcon /></IconButton>
+              <IconButton color="primary" onClick={() => handleOpen(row)}>
+                <EditIcon />
+              </IconButton>
+              <IconButton color="error" onClick={() => handleDelete(row.id)}>
+                <DeleteIcon />
+              </IconButton>
             </TableCell>
           </>
         )}
       />
 
       <Dialog open={open} onClose={handleClose} component="form" onSubmit={handleSave}>
-        <DialogTitle>{selectedUser ? 'Editar Usuário' : 'Novo Usuário'}</DialogTitle>
+        <DialogTitle>{selectedUser ? 'Editar Usuario' : 'Novo Usuario'}</DialogTitle>
         <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 1, minWidth: 400 }}>
-            <TextField name="nome" label="Nome" fullWidth defaultValue={selectedUser?.nome} required />
-            <TextField name="email" label="E-mail" fullWidth defaultValue={selectedUser?.email} required />
-            
-            <TextField 
-                name="password" 
-                label={selectedUser ? "Nova Senha (opcional)" : "Senha"} 
-                type="password" 
-                fullWidth 
-                required={!selectedUser} 
-            />
-
+          <Stack spacing={2} sx={{ mt: 1, minWidth: 420 }}>
+            <TextField name="nome" label="Nome" fullWidth defaultValue={selectedUser?.nome || ''} required />
+            <TextField name="email" label="E-mail" type="email" fullWidth defaultValue={selectedUser?.email || ''} required />
             <TextField
-                select
-                name="perfil"
-                label="Permissão"
-                fullWidth
-                // IMPORTANTE: Aqui você seleciona o ID que o back espera no POST
-                defaultValue={selectedUser?.perfil === "ADMIN" ? 1 : 2} 
-                required
+              name="dataNascimento"
+              label="Data de Nascimento"
+              type="date"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              defaultValue={selectedUser?.dataNascimento || ''}
+              required
+            />
+            <TextField
+              name="password"
+              label={selectedUser ? 'Nova Senha (opcional)' : 'Senha'}
+              type="password"
+              fullWidth
+              required={!selectedUser}
+            />
+            <TextField
+              select
+              name="perfil"
+              label="Permissao"
+              fullWidth
+              defaultValue={selectedUser ? selectedRoleId : ''}
+              required
             >
-                {roles.map((role) => (
-                    <MenuItem key={role.id} value={role.id}>
-                        {role.nome}
-                    </MenuItem>
-                ))}
+              {roles.map((role) => (
+                <MenuItem key={role.id} value={role.id}>
+                  {role.descricao}
+                </MenuItem>
+              ))}
             </TextField>
           </Stack>
         </DialogContent>
