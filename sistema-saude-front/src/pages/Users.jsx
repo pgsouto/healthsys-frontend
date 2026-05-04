@@ -12,8 +12,8 @@ import GenericTable from '../components/GenericTable';
 const headCells = [
   { id: 'nome', label: 'Nome Completo' },
   { id: 'email', label: 'E-mail / Login' },
-  { id: 'permissao', label: 'Permissao' },
-  { id: 'actions', label: 'Acoes', numeric: true },
+  { id: 'permissao', label: 'Permissão' },
+  { id: 'actions', label: 'Ações', numeric: true },
 ];
 
 const Users = () => {
@@ -124,20 +124,12 @@ const Users = () => {
     <Box sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-          Usuarios
+          Usuários
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
           Novo Usuario
         </Button>
       </Stack>
-
-      <TextField
-        size="small"
-        label="Buscar por nome"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        sx={{ mb: 2, minWidth: 280 }}
-      />
 
       <GenericTable
         headCells={headCells}

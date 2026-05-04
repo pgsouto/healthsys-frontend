@@ -19,6 +19,9 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
 import LockPersonIcon from '@mui/icons-material/LockPerson';
 import NewspaperIcon from '@mui/icons-material/Newspaper';
+import HealingIcon from '@mui/icons-material/Healing';
+import VaccinesIcon from '@mui/icons-material/Vaccines';
+import PersonalInjuryIcon from '@mui/icons-material/PersonalInjury';
 import { Link } from 'react-router-dom'; // Para a navegação funcionar
 
 const drawerWidth = 240; // Definimos a largura padrão
@@ -61,9 +64,15 @@ export default function PermanentDrawer() {
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
-            <ListItemButton component={Link} to="/pharmacy">
-              <ListItemIcon><MedicationIcon /></ListItemIcon>
-              <ListItemText primary="Farmácia" />
+            <ListItemButton component={Link} to="/screening">
+              <ListItemIcon><PersonalInjuryIcon /></ListItemIcon>
+              <ListItemText primary="Triagem" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/vaccines">
+              <ListItemIcon><VaccinesIcon /></ListItemIcon>
+              <ListItemText primary="Vacinas" />
             </ListItemButton>
           </ListItem>
           <Divider />

@@ -18,28 +18,20 @@ const headCells = [
   { id: 'cpf', label: 'CPF' },
   { id: 'dataNascimento', label: 'Data Nasc.' },
   { id: 'telefone', label: 'Telefone' },
-  { id: 'actions', label: 'Acoes', numeric: true },
+  { id: 'actions', label: 'Ações', numeric: true },
 ];
 
-// Formata "YYYY-MM-DD" (ou "YYYY-MM-DDTHH:mm:ss...") para "DD/MM/YYYY"
-// sem usar new Date(), evitando bug de fuso horario.
 const formatDateBR = (isoDate) => {
   if (!isoDate) return '-';
   const datePart = String(isoDate).slice(0, 10);
   const [y, m, d] = datePart.split('-');
-  if (!y || !m || !d) return '-';
-  return `${d}/${m}/${y}`;
+  return (y && m && d) ? `${d}/${m}/${y}` : '-';
 };
 
-// Garante valor compativel com input type="date"
-const normalizeDateInput = (value) => {
-  if (!value) return '';
-  return String(value).slice(0, 10);
-};
+const normalizeDateInput = (value) => value ? String(value).slice(0, 10) : '';
 
 const Patients = () => {
   const navigate = useNavigate();
-
   const [patients, setPatients] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -48,11 +40,12 @@ const Patients = () => {
   const [sexos, setSexos] = useState([]);
   const [generos, setGeneros] = useState([]);
 
+  // 1. Busca Pacientes (Gateway /api/pacientes)
   useEffect(() => {
     const fetchPatients = async () => {
       try {
         const url = searchTerm
-          ? `/api/pacientes?nome=${encodeURIComponent(searchTerm)}`
+          ? `/api/pacientes?cpf=${encodeURIComponent(searchTerm)}`
           : '/api/pacientes';
         const response = await api.get(url);
         setPatients(response.data);
@@ -60,10 +53,10 @@ const Patients = () => {
         console.error('Erro ao buscar pacientes:', error);
       }
     };
-
     fetchPatients();
   }, [refreshKey, searchTerm]);
 
+  // 2. Busca Opções (Gateway /api/...)
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -74,10 +67,9 @@ const Patients = () => {
         setSexos(resSexo.data);
         setGeneros(resGenero.data);
       } catch (err) {
-        console.error('Erro ao carregar opcoes:', err);
+        console.error('Erro ao carregar opções:', err);
       }
     };
-
     fetchOptions();
   }, []);
 
@@ -97,27 +89,20 @@ const Patients = () => {
         await api.delete(`/api/pacientes/${id}`);
         setRefreshKey((prev) => prev + 1);
       } catch (error) {
-        console.error('Erro ao deletar:', error);
+        alert('Erro ao deletar: Verifique se o paciente possui triagens vinculadas.');
       }
     }
   };
 
-  // PacienteResponseDTO traz sexo/genero como texto.
-  // Aqui mapeamos esse texto para o id da opcao no select.
+  // Mapeia texto para ID para o Select funcionar na Edição
   const selectedSexoId = useMemo(() => {
     if (!selectedPatient?.sexo) return '';
-    const opt = sexos.find(
-      (s) => (s.descricao || s.nome) === selectedPatient.sexo
-    );
-    return opt?.id ?? '';
+    return sexos.find(s => (s.descricao || s.nome) === selectedPatient.sexo)?.id || '';
   }, [selectedPatient, sexos]);
 
   const selectedGeneroId = useMemo(() => {
     if (!selectedPatient?.genero) return '';
-    const opt = generos.find(
-      (g) => (g.descricao || g.nome) === selectedPatient.genero
-    );
-    return opt?.id ?? '';
+    return generos.find(g => (g.descricao || g.nome) === selectedPatient.genero)?.id || '';
   }, [selectedPatient, generos]);
 
   const handleSave = async (event) => {
@@ -129,7 +114,7 @@ const Patients = () => {
       nome: data.nome,
       nomeSocial: data.nomeSocial || null,
       cpf: data.cpf,
-      dataNascimento: data.dataNascimento, // YYYY-MM-DD do input date
+      dataNascimento: data.dataNascimento,
       sexo: Number(data.sexoId),
       genero: Number(data.generoId),
       telefones: [data.tel1, data.tel2].filter(Boolean),
@@ -138,7 +123,7 @@ const Patients = () => {
     };
 
     try {
-      if (selectedPatient) {
+      if (selectedPatient?.id) {
         await api.put(`/api/pacientes/${selectedPatient.id}`, payload);
       } else {
         await api.post('/api/pacientes', payload);
@@ -146,38 +131,22 @@ const Patients = () => {
       setRefreshKey((prev) => prev + 1);
       handleClose();
     } catch (error) {
-      console.error('Erro ao salvar:', error);
-      alert('Erro ao salvar paciente.');
+      alert(error.response?.data?.message || 'Erro ao salvar paciente.');
     }
   };
 
   return (
     <Box sx={{ p: 3 }}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-        spacing={2}
-        sx={{ mb: 3 }}
-      >
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-          Pacientes
-        </Typography>
-
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Pacientes</Typography>
         <Stack direction="row" spacing={2} sx={{ width: { xs: '100%', md: 'auto' } }}>
           <TextField
-            variant="outlined"
             size="small"
-            placeholder="Consultar paciente..."
+            placeholder="Consultar por CPF..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ width: { xs: '100%', md: 300 }, bgcolor: 'white' }}
             InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
+              startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
             }}
           />
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
@@ -190,7 +159,6 @@ const Patients = () => {
         title="Listagem de Pacientes"
         headCells={headCells}
         rows={patients}
-        onDeleteSelected={(ids) => console.log('Excluir em massa:', ids)}
         renderRow={(row) => (
           <>
             <TableCell>{row.nome}</TableCell>
@@ -199,21 +167,13 @@ const Patients = () => {
             <TableCell>{row.telefones?.[0] || 'N/A'}</TableCell>
             <TableCell align="right">
               <Stack direction="row" spacing={1} justifyContent="flex-end">
-                <Tooltip title="Prontuario">
-                  <IconButton color="success" onClick={() => navigate(`/patients/${row.id}`)}>
+                <Tooltip title="Triagens">
+                  <IconButton color="success" onClick={() => navigate(`/screening/patient/${row.id}`)}>
                     <HistoryIcon />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Editar">
-                  <IconButton color="primary" onClick={() => handleOpen(row)}>
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Excluir">
-                  <IconButton color="error" onClick={() => handleDelete(row.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
+                <IconButton color="primary" onClick={() => handleOpen(row)}><EditIcon /></IconButton>
+                <IconButton color="error" onClick={() => handleDelete(row.id)}><DeleteIcon /></IconButton>
               </Stack>
             </TableCell>
           </>
@@ -225,98 +185,43 @@ const Patients = () => {
           {selectedPatient ? 'Editar' : 'Novo'} Paciente
         </DialogTitle>
         <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 1, minWidth: { md: 500 } }}>
-            <TextField
-              name="nome"
-              label="Nome Completo"
-              fullWidth
-              defaultValue={selectedPatient?.nome || ''}
-              required
-            />
-            <TextField
-              name="nomeSocial"
-              label="Nome Social"
-              fullWidth
-              defaultValue={selectedPatient?.nomeSocial || ''}
-            />
+          {/* A 'key' no Stack garante que o formulário resete/atualize ao mudar o paciente selecionado */}
+          <Stack spacing={2} sx={{ mt: 1, minWidth: { md: 500 } }} key={selectedPatient?.id || 'new'}>
+            <TextField name="nome" label="Nome Completo" fullWidth defaultValue={selectedPatient?.nome || ''} required />
+            <TextField name="nomeSocial" label="Nome Social" fullWidth defaultValue={selectedPatient?.nomeSocial || ''} />
+            
             <Stack direction="row" spacing={2}>
-              <TextField
-                name="cpf"
-                label="CPF"
-                fullWidth
-                defaultValue={selectedPatient?.cpf || ''}
-                required
-              />
-              <TextField
-                name="dataNascimento"
-                label="Data Nasc."
-                type="date"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                defaultValue={normalizeDateInput(selectedPatient?.dataNascimento)}
-                required
+              <TextField name="cpf" label="CPF" fullWidth defaultValue={selectedPatient?.cpf || ''} required />
+              <TextField 
+                name="dataNascimento" 
+                label="Data Nasc." 
+                type="date" 
+                fullWidth 
+                InputLabelProps={{ shrink: true }} 
+                defaultValue={normalizeDateInput(selectedPatient?.dataNascimento)} 
+                required 
               />
             </Stack>
 
             <Stack direction="row" spacing={2}>
-              <TextField
-                select
-                name="sexoId"
-                label="Sexo"
-                fullWidth
-                defaultValue={selectedSexoId}
-                required
-              >
-                {sexos.map((opt) => (
-                  <MenuItem key={opt.id} value={opt.id}>
-                    {opt.descricao || opt.nome}
-                  </MenuItem>
-                ))}
+              <TextField select name="sexoId" label="Sexo" fullWidth defaultValue={selectedSexoId} required>
+                {sexos.map((opt) => <MenuItem key={opt.id} value={opt.id}>{opt.descricao || opt.nome}</MenuItem>)}
               </TextField>
-
-              <TextField
-                select
-                name="generoId"
-                label="Genero"
-                fullWidth
-                defaultValue={selectedGeneroId}
-                required
-              >
-                {generos.map((opt) => (
-                  <MenuItem key={opt.id} value={opt.id}>
-                    {opt.descricao || opt.nome}
-                  </MenuItem>
-                ))}
+              <TextField select name="generoId" label="Gênero" fullWidth defaultValue={selectedGeneroId} required>
+                {generos.map((opt) => <MenuItem key={opt.id} value={opt.id}>{opt.descricao || opt.nome}</MenuItem>)}
               </TextField>
             </Stack>
 
-            <Typography variant="subtitle2" color="textSecondary">
-              Contatos
-            </Typography>
+            <Typography variant="subtitle2" color="textSecondary">Contatos</Typography>
             <Stack direction="row" spacing={2}>
-              <TextField
-                name="tel1"
-                label="Telefone Principal"
-                fullWidth
-                defaultValue={selectedPatient?.telefones?.[0] || ''}
-                required
-              />
-              <TextField
-                name="tel2"
-                label="Telefone Secundario"
-                fullWidth
-                defaultValue={selectedPatient?.telefones?.[1] || ''}
-              />
+              <TextField name="tel1" label="Telefone Principal" fullWidth defaultValue={selectedPatient?.telefones?.[0] || ''} required />
+              <TextField name="tel2" label="Telefone Secundário" fullWidth defaultValue={selectedPatient?.telefones?.[1] || ''} />
             </Stack>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} color="inherit">
-            Cancelar
-          </Button>
-          <Button type="submit" variant="contained">
-            Confirmar
-          </Button>
+          <Button onClick={handleClose} color="inherit">Cancelar</Button>
+          <Button type="submit" variant="contained">Confirmar</Button>
         </DialogActions>
       </Dialog>
     </Box>

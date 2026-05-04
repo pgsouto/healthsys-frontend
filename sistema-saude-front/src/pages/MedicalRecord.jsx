@@ -22,8 +22,7 @@ const MedicalRecord = () => {
       try {
         // Busca o paciente específico e os registros vinculados ao ID dele
         const [patientRes, recordsRes] = await Promise.all([
-          api.get(`/patients/${id}`),
-          api.get(`/medical_records?patientId=${id}`)
+          api.get(`api/pacientes/${id}`)
         ]);
         
         setPatient(patientRes.data);
@@ -54,7 +53,7 @@ const MedicalRecord = () => {
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <PersonIcon color="primary" sx={{ fontSize: 40 }} />
           <Box>
-            <Typography variant="h5" fontWeight="bold">{patient?.name}</Typography>
+            <Typography variant="h5" fontWeight="bold">{patient?.nome}</Typography>
             <Typography variant="body2" color="textSecondary">CPF: {patient?.cpf}</Typography>
           </Box>
         </Stack>

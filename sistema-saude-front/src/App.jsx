@@ -5,6 +5,7 @@ import MedicalRecord from "./pages/MedicalRecord";
 import Appointments from "./pages/Appointments";
 import Users from "./pages/Users";
 import Login from "./pages/Login";
+import Screening from "./pages/screening";
 
 // Componente para proteger as rotas
 const PrivateRoute = ({ children }) => {
@@ -36,6 +37,7 @@ function App() {
           <Route path="patients/:id" element={<MedicalRecord />} />
           <Route path="appointments" element={<Appointments />} />
           <Route path="users" element={<Users />} />
+          <Route path="screening" element={<Screening />} />
         </Route>
 
         {/* Rota para 404 ou redirecionar se digitar lixo na URL */}
