@@ -7,29 +7,27 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Toolbar from '@mui/material/Toolbar'; // Importante para o espaçamento
-import InboxIcon from '@mui/icons-material/MoveToInbox';
+import Toolbar from '@mui/material/Toolbar'; 
 import PersonIcon from '@mui/icons-material/Person';
 import TodayIcon from '@mui/icons-material/Today';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
-import MedicationIcon from '@mui/icons-material/Medication';
-import MailIcon from '@mui/icons-material/Mail';
-import InventoryIcon from '@mui/icons-material/Inventory';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
 import LockPersonIcon from '@mui/icons-material/LockPerson';
 import NewspaperIcon from '@mui/icons-material/Newspaper';
-import HealingIcon from '@mui/icons-material/Healing';
 import VaccinesIcon from '@mui/icons-material/Vaccines';
 import PersonalInjuryIcon from '@mui/icons-material/PersonalInjury';
-import { Link } from 'react-router-dom'; // Para a navegação funcionar
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformation'; // Ícone lindo para o Prontuário
+import { Link } from 'react-router-dom'; 
 
-const drawerWidth = 240; // Definimos a largura padrão
+const drawerWidth = 240; 
 
 export default function PermanentDrawer() {
+  // Verifica em tempo real se existe algum paciente selecionado na sessão
+  const temPacienteSelecionado = !!sessionStorage.getItem('selectedPacienteId');
+
   return (
     <Drawer
-      variant="permanent" // Muda de temporary para permanent
+      variant="permanent" 
       sx={{
         width: drawerWidth,
         flexShrink: 0,
@@ -39,86 +37,88 @@ export default function PermanentDrawer() {
         },
       }}
     >
-      {/* Esse Toolbar vazio evita que o menu fique "atrás" da AppBar */}
       <Toolbar /> 
       
       <Box sx={{ overflow: 'auto' }}>
         <List>
-          {/* Exemplo de como você deve usar com o Router futuramente */}
-          <ListItem disablePadding>
+          {/*<ListItem disablePadding>
             <ListItemButton component={Link} to="/appointments">
               <ListItemIcon><TodayIcon /></ListItemIcon>
               <ListItemText primary="Agendamentos" />
             </ListItemButton>
-          </ListItem>
+          </ListItem>*/}
+          
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/patients">
               <ListItemIcon><PersonIcon /></ListItemIcon>
               <ListItemText primary="Pacientes" />
             </ListItemButton>
           </ListItem>
+
+          {/* NOVO LINK: Prontuário Eletrônico Condicional */}
+          <ListItem disablePadding>
+            <ListItemButton 
+              component={Link} 
+              to="/medical-records"
+              disabled={!temPacienteSelecionado} // Se não clicou em ninguém antes, o botão fica cinza/bloqueado
+              title={!temPacienteSelecionado ? "Selecione um paciente na listagem para liberar o prontuário" : "Visualizar prontuário ativo"}
+            >
+              <ListItemIcon>
+                <MedicalInformationIcon color={temPacienteSelecionado ? "primary" : "inherit"} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Prontuário Ativo" 
+                secondary={!temPacienteSelecionado ? "Nenhum selecionado" : "Liberado"}
+                secondaryTypographyProps={{ style: { fontSize: '0.75rem' } }}
+              />
+            </ListItemButton>
+          </ListItem>
+
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/users">
               <ListItemIcon><AssignmentIndIcon /></ListItemIcon>
               <ListItemText primary="Usuários" />
             </ListItemButton>
           </ListItem>
+          
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/screening">
               <ListItemIcon><PersonalInjuryIcon /></ListItemIcon>
               <ListItemText primary="Triagem" />
             </ListItemButton>
           </ListItem>
+          
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/vaccines">
               <ListItemIcon><VaccinesIcon /></ListItemIcon>
               <ListItemText primary="Vacinas" />
             </ListItemButton>
           </ListItem>
+          
           <Divider />
+          
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/dashboard">
               <ListItemIcon><SpaceDashboardIcon /></ListItemIcon>
               <ListItemText primary="Dashboard" />
             </ListItemButton>
           </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component={Link} to="/inventory">
-              <ListItemIcon><InventoryIcon /></ListItemIcon>
-              <ListItemText primary="Estoque" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component={Link} to="/billing">
-              <ListItemIcon><AttachMoneyIcon /></ListItemIcon>
-              <ListItemText primary="Financeiro" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
+          
+          {/*<ListItem disablePadding>
             <ListItemButton component={Link} to="/permissions">
               <ListItemIcon><LockPersonIcon /></ListItemIcon>
               <ListItemText primary="Permissões" />
             </ListItemButton>
-          </ListItem>
+          </ListItem>*/}
+          
           <Divider />
+          
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/news">
               <ListItemIcon><NewspaperIcon /></ListItemIcon>
               <ListItemText primary="Mural de notícias" />
             </ListItemButton>
           </ListItem>
-
-          
-          {['Starred', 'Send email', 'Drafts'].map((text, index) => (
-            <ListItem key={text} disablePadding>
-              <ListItemButton>
-                <ListItemIcon>
-                  {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
-                </ListItemIcon>
-                <ListItemText primary={text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
         </List>
       </Box>
     </Drawer>

@@ -9,6 +9,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import HistoryIcon from '@mui/icons-material/History';
+import AssignmentIcon from '@mui/icons-material/Assignment'; // Ícone excelente para o prontuário
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import GenericTable from '../components/GenericTable';
@@ -94,6 +95,17 @@ const Patients = () => {
     }
   };
 
+  // FUNÇÃO NOVA: Trata o clique no prontuário guardando o estado global da sessão
+  const handleVerProntuario = (patient) => {
+    if (!patient || !patient.id) return;
+    
+    // Alimenta o sessionStorage para destravar o botão inteligente do menu lateral
+    sessionStorage.setItem('selectedPacienteId', patient.id);
+    
+    // Redireciona usando a rota dinâmica por ID (/patients/:id) do seu App.jsx
+    navigate(`/patients/${patient.id}`);
+  };
+
   // Mapeia texto para ID para o Select funcionar na Edição
   const selectedSexoId = useMemo(() => {
     if (!selectedPatient?.sexo) return '';
@@ -167,11 +179,20 @@ const Patients = () => {
             <TableCell>{row.telefones?.[0] || 'N/A'}</TableCell>
             <TableCell align="right">
               <Stack direction="row" spacing={1} justifyContent="flex-end">
-                <Tooltip title="Triagens">
+                
+                {/* NOVO BOTÃO: Prontuário Eletrônico integrado por Paciente */}
+                <Tooltip title="Ver Prontuário">
+                  <IconButton color="info" onClick={() => handleVerProntuario(row)}>
+                    <AssignmentIcon />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Histórico de Triagens">
                   <IconButton color="success" onClick={() => navigate(`/screening/patient/${row.id}`)}>
                     <HistoryIcon />
                   </IconButton>
                 </Tooltip>
+
                 <IconButton color="primary" onClick={() => handleOpen(row)}><EditIcon /></IconButton>
                 <IconButton color="error" onClick={() => handleDelete(row.id)}><DeleteIcon /></IconButton>
               </Stack>
@@ -185,7 +206,6 @@ const Patients = () => {
           {selectedPatient ? 'Editar' : 'Novo'} Paciente
         </DialogTitle>
         <DialogContent dividers>
-          {/* A 'key' no Stack garante que o formulário resete/atualize ao mudar o paciente selecionado */}
           <Stack spacing={2} sx={{ mt: 1, minWidth: { md: 500 } }} key={selectedPatient?.id || 'new'}>
             <TextField name="nome" label="Nome Completo" fullWidth defaultValue={selectedPatient?.nome || ''} required />
             <TextField name="nomeSocial" label="Nome Social" fullWidth defaultValue={selectedPatient?.nomeSocial || ''} />

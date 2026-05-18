@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton
+  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton, InputAdornment
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
 import api from '../services/api';
 import GenericTable from '../components/GenericTable';
 
@@ -24,6 +25,7 @@ const Users = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // 1. Busca de Usuários (Com suporte a Token Bearer injetado pelo interceptor)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -33,29 +35,41 @@ const Users = () => {
         const response = await api.get(url);
         setUsers(response.data);
       } catch (error) {
-        console.error('Erro ao buscar usuarios:', error);
+        console.error('Erro ao buscar usuários:', error);
+        if (error.response?.status === 403) {
+          alert("Acesso Negado: Seu perfil não possui autorização para listar usuários.");
+        }
       }
     };
     fetchUsers();
   }, [refreshKey, searchTerm]);
 
+  // 2. Busca de Perfis/Roles
   useEffect(() => {
     const fetchRoles = async () => {
       try {
         const response = await api.get('/auth/perfis');
         setRoles(response.data);
       } catch (error) {
-        console.error('Erro ao buscar permissoes:', error);
+        console.error('Erro ao buscar permissões:', error);
       }
     };
     fetchRoles();
   }, []);
 
+  // CORREÇÃO CRÍTICA: Varre o objeto ou string do perfil retornado pelo back
   const selectedRoleId = useMemo(() => {
     if (!selectedUser?.perfil || roles.length === 0) return '';
-    const perfilNormalizado = String(selectedUser.perfil).trim().toLowerCase();
+    
+    // Trata se o backend retornar o objeto cheio ou apenas o ID/String
+    const perfilAlvo = typeof selectedUser.perfil === 'object' 
+      ? selectedUser.perfil.descricao 
+      : selectedUser.perfil;
+
+    const perfilNormalizado = String(perfilAlvo).trim().toLowerCase();
+    
     const role = roles.find(
-      (r) => String(r.descricao || '').trim().toLowerCase() === perfilNormalizado
+      (r) => String(r.descricao || '').trim().toLowerCase() === perfilNormalizado || String(r.id) === perfilAlvo
     );
     return role?.id ?? '';
   }, [selectedUser, roles]);
@@ -71,13 +85,13 @@ const Users = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Deseja realmente excluir este usuario?')) return;
+    if (!window.confirm('Deseja realmente excluir este usuário?')) return;
     try {
       await api.delete(`/auth/usuarios/${id}`);
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error('Erro ao deletar:', error.response?.data || error);
-      alert(error.response?.data?.message || 'Erro ao deletar usuario.');
+      alert(error.response?.data?.message || 'Erro ao deletar usuário.');
     }
   };
 
@@ -87,8 +101,8 @@ const Users = () => {
     const data = Object.fromEntries(formData.entries());
 
     const perfilId = Number(data.perfil);
-    if (!Number.isInteger(perfilId) || perfilId <= 0) {
-      alert('Selecione uma permissao valida.');
+    if (!perfilId || perfilId <= 0) {
+      alert('Selecione uma permissão válida.');
       return;
     }
 
@@ -96,7 +110,7 @@ const Users = () => {
       nome: data.nome,
       email: data.email,
       dataNascimento: data.dataNascimento,
-      perfil: perfilId,
+      perfilId: perfilId, // CORREÇÃO: Alinhado com o DTO do Java que espera o ID explícito
     };
 
     if (!selectedUser?.id || (data.password && data.password.trim() !== '')) {
@@ -112,24 +126,45 @@ const Users = () => {
       setRefreshKey((prev) => prev + 1);
       handleClose();
     } catch (error) {
-    console.error("status:", error.response?.status);
-    console.error("data:", error.response?.data);
-    console.error("url:", error.config?.url);
-    alert(error.response?.data?.message || error.message || "Erro ao salvar usuario.");
-  }
+      console.error("Erro no salvamento:", error.response);
+      alert(error.response?.data?.message || "Erro ao salvar usuário.");
+    }
+  };
 
+  // Helper para renderizar a tabela tratando perfis aninhados
+  const renderPerfilText = (perfilData) => {
+    if (!perfilData) return 'N/A';
+    return typeof perfilData === 'object' ? perfilData.descricao : perfilData;
   };
 
   return (
     <Box sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-          Usuários
+          Gerenciamento de Usuários
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-          Novo Usuario
+          Novo Usuário
         </Button>
       </Stack>
+
+      {/* CORREÇÃO VISUAL: Input de busca que estava ausente no JSX original */}
+      <Box sx={{ mb: 3, maxWidth: 400 }}>
+        <TextField
+          fullWidth
+          size="small"
+          label="Buscar por nome..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon size="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       <GenericTable
         headCells={headCells}
@@ -138,7 +173,7 @@ const Users = () => {
           <>
             <TableCell>{row.nome}</TableCell>
             <TableCell>{row.email}</TableCell>
-            <TableCell>{row.perfil}</TableCell>
+            <TableCell>{renderPerfilText(row.perfil)}</TableCell>
             <TableCell align="right">
               <IconButton color="primary" onClick={() => handleOpen(row)}>
                 <EditIcon />
@@ -152,7 +187,7 @@ const Users = () => {
       />
 
       <Dialog open={open} onClose={handleClose} component="form" onSubmit={handleSave}>
-        <DialogTitle>{selectedUser ? 'Editar Usuario' : 'Novo Usuario'}</DialogTitle>
+        <DialogTitle>{selectedUser ? 'Editar Usuário' : 'Novo Usuário'}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1, minWidth: 420 }}>
             <TextField name="nome" label="Nome" fullWidth defaultValue={selectedUser?.nome || ''} required />
@@ -176,9 +211,10 @@ const Users = () => {
             <TextField
               select
               name="perfil"
-              label="Permissao"
+              label="Permissão"
               fullWidth
-              defaultValue={selectedUser ? selectedRoleId : ''}
+              defaultValue={selectedRoleId}
+              key={selectedRoleId} // Força re-render para atualizar o select na edição
               required
             >
               {roles.map((role) => (
