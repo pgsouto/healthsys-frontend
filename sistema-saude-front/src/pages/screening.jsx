@@ -116,10 +116,17 @@ const Screening = () => {
       ? riscoSugerido.risco.id 
       : (riscoSugerido?.risco || riscoSugerido?.riscoId);
 
+    // PAYLOAD TOTALMENTE AJUSTADO AO TRIAGEM_REQUEST_DTO DO JAVA
     const payload = {
       paciente: patientValue.id,
       risco: Number(riscoSugeridoId || 1),
-      status: Number(formData.get('statusId') || 1)
+      status: Number(formData.get('statusId') || 1),
+      dataCriacao: selectedTriagem?.dataCriacao || new Date().toISOString(), // Injeta a data atual (obrigatória no back)
+      temperatura: formData.get('temperatura') || null,
+      glicemia: formData.get('glicemia') || null,
+      frequenciaCardiaca: formData.get('frequenciaCardiaca') || null,
+      saturacaoOxigenio: formData.get('saturacaoOxigenio') || null,
+      frequenciaRespiratoria: formData.get('frequenciaRespiratoria') || null
     };
 
     try {
@@ -217,7 +224,27 @@ const Screening = () => {
               />
             </Grid>
 
-            {/* SEÇÃO 2: AVALIAÇÃO DE SINTOMAS */}
+            {/* SEÇÃO 2: SINAIS VITAIS */}
+            <Grid item xs={12}>
+              <Divider sx={{ mb: 1 }}>Sinais Vitais do Paciente</Divider>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField name="temperatura" label="Temp. (°C)" defaultValue={selectedTriagem?.temperatura || ""} fullWidth placeholder="Ex: 36.5" />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField name="glicemia" label="Glicemia (mg/dL)" defaultValue={selectedTriagem?.glicemia || ""} fullWidth placeholder="Ex: 90" />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField name="frequenciaCardiaca" label="Freq. Cardíaca (bpm)" defaultValue={selectedTriagem?.frequenciaCardiaca || ""} fullWidth placeholder="Ex: 80" />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField name="saturacaoOxigenio" label="Saturação (%)" defaultValue={selectedTriagem?.saturacaoOxigenio || ""} fullWidth placeholder="Ex: 98" />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField name="frequenciaRespiratoria" label="Freq. Respiratória (irpm)" defaultValue={selectedTriagem?.frequenciaRespiratoria || ""} fullWidth placeholder="Ex: 16" />
+            </Grid>
+
+            {/* SEÇÃO 3: AVALIAÇÃO DE SINTOMAS */}
             <Grid item xs={12}>
               <Divider sx={{ mb: 1 }}>Protocolo de Manchester</Divider>
             </Grid>
@@ -239,7 +266,7 @@ const Screening = () => {
               />
             </Grid>
 
-            {/* SEÇÃO 3: RESULTADO AUTOMÁTICO - Ocupa metade da largura em telas médias */}
+            {/* SEÇÃO 4: RESULTADO AUTOMÁTICO */}
             <Grid item xs={12} md={6}>
               <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', boxSizing: 'border-box' }}>
                 <Typography variant="subtitle2" gutterBottom sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>GRAVIDADE CALCULADA:</Typography>
@@ -255,7 +282,7 @@ const Screening = () => {
               </Box>
             </Grid>
 
-            {/* SEÇÃO 4: STATUS - Ocupa a outra metade da largura em telas médias */}
+            {/* SEÇÃO 5: STATUS */}
             <Grid item xs={12} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
               <TextField 
                 select 

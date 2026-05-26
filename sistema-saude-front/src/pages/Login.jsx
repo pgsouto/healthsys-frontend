@@ -7,8 +7,12 @@ import {
   Typography, 
   Stack, 
   Alert, 
-  CssBaseline 
+  CssBaseline,
+  InputAdornment, // Importação adicionada
+  IconButton      // Importação adicionada
 } from '@mui/material';
+import Visibility from '@mui/icons-material/Visibility';     // Ícone de olho aberto
+import VisibilityOff from '@mui/icons-material/VisibilityOff'; // Ícone de olho fechado
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
@@ -16,7 +20,17 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  
+  // Estado para controlar a visibilidade da senha
+  const [showPassword, setShowPassword] = useState(false);
+  
   const navigate = useNavigate();
+
+  // Funções para alternar o olhinho da senha
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
+  const handleMouseDownPassword = (event) => {
+    event.preventDefault(); // Evita que o input perca o foco ao clicar no ícone
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -42,18 +56,17 @@ const Login = () => {
   
   return (
     <>
-      {/* O CssBaseline remove margens padrão e garante que o 100vh funcione perfeitamente */}
       <CssBaseline />
       
       <Box sx={{ 
         display: 'flex', 
         flexDirection: { xs: 'column', md: 'row' },
-        minHeight: '100dvh', // Altura dinâmica da viewport
+        minHeight: '100dvh', 
         width: '100vw',
-        overflowX: 'hidden' // Garante que nada escape para os lados
+        overflowX: 'hidden' 
       }}>
         
-        {/* LADO ESQUERDO: Painel Informativo (Oculto em telas pequenas) */}
+        {/* LADO ESQUERDO */}
         <Box sx={{ 
           flex: 1, 
           display: { xs: 'none', md: 'flex' }, 
@@ -73,14 +86,14 @@ const Login = () => {
           </Stack>
         </Box>
 
-        {/* LADO DIREITO: Área do Formulário */}
+        {/* LADO DIREITO */}
         <Box sx={{ 
           flex: 1, 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
           bgcolor: '#f5f5f5',
-          p: { xs: 2, sm: 4 } // Padding responsivo
+          p: { xs: 2, sm: 4 } 
         }}>
           <Paper 
             elevation={3} 
@@ -119,15 +132,32 @@ const Login = () => {
                   onChange={(e) => setUsername(e.target.value)} 
                   required 
                 />
+                
+                {/* Campo de Senha Atualizado com o Olhinho */}
                 <TextField 
                   label="Senha" 
-                  type="password" 
+                  type={showPassword ? 'text' : 'password'} // Alterna entre text e password
                   variant="outlined"
                   fullWidth 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   required 
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={handleClickShowPassword}
+                          onMouseDown={handleMouseDownPassword}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
+
                 <Button 
                   type="submit" 
                   variant="contained" 
@@ -137,7 +167,7 @@ const Login = () => {
                     py: 1.8, 
                     fontWeight: 'bold', 
                     fontSize: '1rem',
-                    textTransform: 'none' // Evita o CAPS LOCK automático do Material UI
+                    textTransform: 'none' 
                   }}
                 >
                   Entrar

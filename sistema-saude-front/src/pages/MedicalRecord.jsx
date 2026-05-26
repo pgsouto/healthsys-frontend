@@ -28,7 +28,7 @@ const getRiscoBadge = (idRisco) => {
 const MedicalRecord = () => {
   const [paciente, setPaciente] = useState(null);
   const [historicoTriagens, setHistoricoTriagens] = useState([]);
-  const [statusOptions, setStatusOptions] = useState([]); // Carrega as opções de texto de status do back
+  const [statusOptions, setStatusOptions] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -39,11 +39,12 @@ const MedicalRecord = () => {
     const carregarProntuario = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Busca os dados do paciente, as triagens e a lista de status mestre para traduzir o ID do status
+        // Chamadas otimizadas à API
         const [resPaciente, resTriagens, resStatus] = await Promise.all([
           api.get(`/api/pacientes/${pacienteId}`),
-          api.get('/tri/triagens'),
+          api.get(`/tri/triagens/paciente/${pacienteId}`), // Nova rota do Backend!
           api.get('/tri/status')
         ]);
 
@@ -51,21 +52,14 @@ const MedicalRecord = () => {
         setStatusOptions(Array.isArray(resStatus.data) ? resStatus.data : []);
 
         if (Array.isArray(resTriagens.data)) {
-          const idBusca = String(pacienteId).trim().toLowerCase();
-
-          const filtradas = resTriagens.data
-            .filter(t => {
-              const idPacTriagem = String(t.pacienteId || t.paciente || '').trim().toLowerCase();
-              return idPacTriagem === idBusca;
-            })
-            .sort((a, b) => new Date(b.dataCriacao || b.data) - new Date(a.dataCriacao || a.data));
-          
-          setHistoricoTriagens(filtradas);
+          // O backend já filtrou, apenas ordenamos da mais recente para a mais antiga
+          const ordenadas = resTriagens.data.sort((a, b) => new Date(b.dataCriacao || b.data) - new Date(a.dataCriacao || a.data));
+          setHistoricoTriagens(ordenadas);
         }
 
       } catch (err) {
         console.error("Erro ao carregar prontuário:", err);
-        setError("Não foi possível carregar o prontuário deste paciente. Verifique a integração dos microsserviços.");
+        setError("Não foi possível carregar o prontuário deste doente. Verifica a ligação aos microsserviços.");
       } finally {
         setLoading(false);
       }
@@ -78,7 +72,7 @@ const MedicalRecord = () => {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 10, gap: 2 }}>
         <CircularProgress size={60} />
-        <Typography color="textSecondary">Consolidando dados do prontuário eletrônico...</Typography>
+        <Typography color="textSecondary">A consolidar dados do processo clínico...</Typography>
       </Box>
     );
   }
@@ -86,6 +80,18 @@ const MedicalRecord = () => {
   if (error) {
     return <Box sx={{ p: 3 }}><Alert severity="error">{error}</Alert></Box>;
   }
+
+  // Extrair alergias do backend (que podem vir como objetos ou strings)
+  const renderAlergias = () => {
+    if (!paciente?.alergias || paciente.alergias.length === 0) {
+      return <Typography variant="body2" color="textSecondary">Nenhuma alergia grave registada.</Typography>;
+    }
+    
+    return paciente.alergias.map((alergia, idx) => {
+      const label = typeof alergia === 'object' ? alergia.descricao : alergia;
+      return <Chip key={idx} label={label} color="error" size="small" variant="filled" />;
+    });
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -104,13 +110,22 @@ const MedicalRecord = () => {
             <Stack direction="row" spacing={2} sx={{ mt: 1 }} divider={<Divider orientation="vertical" flexItem />}>
               <Typography variant="body2" color="textSecondary"><strong>CPF:</strong> {paciente?.cpf}</Typography>
               <Typography variant="body2" color="textSecondary"><strong>Data Nasc:</strong> {paciente?.dataNascimento}</Typography>
-              <Typography variant="body2" color="textSecondary"><strong>Gênero/Sexo:</strong> {paciente?.genero || paciente?.sexo || 'Não Informado'}</Typography>
+              <Typography variant="body2" color="textSecondary"><strong>Género/Sexo:</strong> {paciente?.genero || paciente?.sexo || 'Não Informado'}</Typography>
             </Stack>
           </Grid>
           <Grid item>
-            <Chip label="PRONTUÁRIO ATIVO" color="success" variant="outlined" sx={{ fontWeight: 'bold' }} />
+            <Chip label="PROCESSO ATIVO" color="success" variant="outlined" sx={{ fontWeight: 'bold' }} />
           </Grid>
         </Grid>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="subtitle2" color="error" sx={{ fontWeight: 'bold', mb: 1 }}>
+          ALERGIAS REGISTADAS:
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          {renderAlergias()}
+        </Stack>
       </Paper>
 
       {/* HISTÓRICO DE PASSAGENS (LINHA DO TEMPO) */}
@@ -122,7 +137,7 @@ const MedicalRecord = () => {
         <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
           <AssignmentIcon sx={{ fontSize: 50, color: '#94a3b8', mb: 1 }} />
           <Typography variant="body1" color="textSecondary">
-            Este paciente ainda não possui nenhum registro de triagem ou passagem hospitalar.
+            Este doente ainda não possui nenhum registo de triagem ou passagem hospitalar.
           </Typography>
         </Paper>
       ) : (
@@ -132,7 +147,6 @@ const MedicalRecord = () => {
             const badgeRisco = getRiscoBadge(idRiscoReal);
             const dataHora = triagem.dataCriacao || triagem.data;
 
-            // Traduz o ID do status recebido para a descrição textual correta
             const idStatusReal = triagem.statusId || triagem.status;
             const statusTexto = statusOptions.find(s => s.id === idStatusReal)?.descricao || 'Em Espera';
 
@@ -140,7 +154,7 @@ const MedicalRecord = () => {
               <TimelineItem key={triagem.id || index}>
                 {/* Lado Esquerdo: Identificador da Passagem */}
                 <TimelineOppositeContent sx={{ m: 'auto 0', flex: 0.2 }} align="right" variant="body2" color="textSecondary">
-                  {dataHora ? new Date(dataHora).toLocaleString() : `Registro #${historicoTriagens.length - index}`}
+                  {dataHora ? new Date(dataHora).toLocaleString() : `Registo #${historicoTriagens.length - index}`}
                 </TimelineOppositeContent>
 
                 {/* Linha e Ponto Central */}
@@ -152,7 +166,7 @@ const MedicalRecord = () => {
                   <TimelineConnector />
                 </TimelineSeparator>
 
-                {/* Lado Direito: Card Simplificado de Admissão */}
+                {/* Lado Direito: Card Detalhado */}
                 <TimelineContent sx={{ py: '12px', px: 2 }}>
                   <Card sx={{ 
                     boxShadow: 2, 
@@ -170,13 +184,33 @@ const MedicalRecord = () => {
                         </Typography>
                         <Chip label={badgeRisco.label} color={badgeRisco.color} size="small" sx={{ fontWeight: 'bold' }} />
                       </Stack>
-
-                      <Typography variant="body2" color="textSecondary">
-                        O paciente deu entrada na unidade distribuída e foi classificado segundo o Protocolo de Manchester.
-                      </Typography>
                       
-                      <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid #f1f5f9' }}>
-                        <Typography variant="caption" color="textSecondary" display="block">STATUS ATUAL DO ENCAMINHAMENTO</Typography>
+                      {/* SINAIS VITAIS ALINHADOS COM O BACKEND */}
+                      <Grid container spacing={2} sx={{ mb: 2, bgcolor: '#f1f5f9', p: 1.5, borderRadius: 1.5 }}>
+                        <Grid item xs={6} sm={2.4}>
+                          <Typography variant="caption" color="textSecondary" display="block">TEMP.</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{triagem.temperatura || '--'} °C</Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={2.4}>
+                          <Typography variant="caption" color="textSecondary" display="block">GLICEMIA</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{triagem.glicemia || '--'} mg/dL</Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={2.4}>
+                          <Typography variant="caption" color="textSecondary" display="block">FC</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{triagem.frequenciaCardiaca || '--'} bpm</Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={2.4}>
+                          <Typography variant="caption" color="textSecondary" display="block">SPO2</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{triagem.saturacaoOxigenio || '--'}%</Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={2.4}>
+                          <Typography variant="caption" color="textSecondary" display="block">FR</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{triagem.frequenciaRespiratoria || '--'} irpm</Typography>
+                        </Grid>
+                      </Grid>
+
+                      <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
+                        <Typography variant="caption" color="textSecondary" display="block">ESTADO ATUAL DO ENCAMINHAMENTO</Typography>
                         <Chip label={statusTexto.toUpperCase()} size="small" variant="outlined" sx={{ mt: 0.5, fontWeight: 'bold' }} />
                       </Box>
                     </CardContent>

@@ -9,7 +9,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import HistoryIcon from '@mui/icons-material/History';
-import AssignmentIcon from '@mui/icons-material/Assignment'; // Ícone excelente para o prontuário
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import GenericTable from '../components/GenericTable';
@@ -31,6 +31,28 @@ const formatDateBR = (isoDate) => {
 
 const normalizeDateInput = (value) => value ? String(value).slice(0, 10) : '';
 
+// Máscara de CPF (000.000.000-00)
+const formatCPF = (cpf) => {
+  if (!cpf) return '';
+  const cleaned = String(cpf).replace(/\D/g, '');
+  const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,3})(\d{0,2})$/);
+  if (!match) return cleaned;
+  return !match[2] ? match[1] 
+       : !match[3] ? `${match[1]}.${match[2]}` 
+       : !match[4] ? `${match[1]}.${match[2]}.${match[3]}` 
+       : `${match[1]}.${match[2]}.${match[3]}-${match[4]}`;
+};
+
+// NOVO: Máscara de Telefone (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+const formatPhone = (phone) => {
+  if (!phone) return '';
+  const cleaned = String(phone).replace(/\D/g, '');
+  if (cleaned.length < 3) return cleaned;
+  if (cleaned.length < 7) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+  if (cleaned.length < 11) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+  return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+};
+
 const Patients = () => {
   const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
@@ -40,13 +62,18 @@ const Patients = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sexos, setSexos] = useState([]);
   const [generos, setGeneros] = useState([]);
+  
+  // Estados para controlar os valores formatados no modal
+  const [cpfValue, setCpfValue] = useState('');
+  const [tel1Value, setTel1Value] = useState('');
+  const [tel2Value, setTel2Value] = useState('');
 
-  // 1. Busca Pacientes (Gateway /api/pacientes)
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const url = searchTerm
-          ? `/api/pacientes?cpf=${encodeURIComponent(searchTerm)}`
+        const unmaskedSearchTerm = searchTerm.replace(/\D/g, '');
+        const url = unmaskedSearchTerm
+          ? `/api/pacientes?cpf=${encodeURIComponent(unmaskedSearchTerm)}`
           : '/api/pacientes';
         const response = await api.get(url);
         setPatients(response.data);
@@ -57,7 +84,6 @@ const Patients = () => {
     fetchPatients();
   }, [refreshKey, searchTerm]);
 
-  // 2. Busca Opções (Gateway /api/...)
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -76,12 +102,19 @@ const Patients = () => {
 
   const handleOpen = (patient = null) => {
     setSelectedPatient(patient);
+    // Formata o CPF e Telefones que vêm da base de dados ao abrir o modal
+    setCpfValue(formatCPF(patient?.cpf || ''));
+    setTel1Value(formatPhone(patient?.telefones?.[0] || ''));
+    setTel2Value(formatPhone(patient?.telefones?.[1] || ''));
     setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
     setSelectedPatient(null);
+    setCpfValue(''); 
+    setTel1Value('');
+    setTel2Value('');
   };
 
   const handleDelete = async (id) => {
@@ -95,18 +128,12 @@ const Patients = () => {
     }
   };
 
-  // FUNÇÃO NOVA: Trata o clique no prontuário guardando o estado global da sessão
   const handleVerProntuario = (patient) => {
     if (!patient || !patient.id) return;
-    
-    // Alimenta o sessionStorage para destravar o botão inteligente do menu lateral
     sessionStorage.setItem('selectedPacienteId', patient.id);
-    
-    // Redireciona usando a rota dinâmica por ID (/patients/:id) do seu App.jsx
     navigate(`/patients/${patient.id}`);
   };
 
-  // Mapeia texto para ID para o Select funcionar na Edição
   const selectedSexoId = useMemo(() => {
     if (!selectedPatient?.sexo) return '';
     return sexos.find(s => (s.descricao || s.nome) === selectedPatient.sexo)?.id || '';
@@ -122,14 +149,18 @@ const Patients = () => {
     const formData = new FormData(event.currentTarget);
     const data = Object.fromEntries(formData.entries());
 
+    // Limpa a formatação de CPF e Telefones antes de enviar ao Backend
+    const cleanTel1 = data.tel1 ? data.tel1.replace(/\D/g, '') : null;
+    const cleanTel2 = data.tel2 ? data.tel2.replace(/\D/g, '') : null;
+
     const payload = {
       nome: data.nome,
       nomeSocial: data.nomeSocial || null,
-      cpf: data.cpf,
+      cpf: data.cpf.replace(/\D/g, ''), 
       dataNascimento: data.dataNascimento,
       sexo: Number(data.sexoId),
       genero: Number(data.generoId),
-      telefones: [data.tel1, data.tel2].filter(Boolean),
+      telefones: [cleanTel1, cleanTel2].filter(Boolean), // Adiciona apenas se não for nulo/vazio
       alergias: [],
       enderecos: [],
     };
@@ -156,7 +187,8 @@ const Patients = () => {
             size="small"
             placeholder="Consultar por CPF..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(formatCPF(e.target.value))}
+            inputProps={{ maxLength: 14 }}
             InputProps={{
               startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
             }}
@@ -174,25 +206,17 @@ const Patients = () => {
         renderRow={(row) => (
           <>
             <TableCell>{row.nome}</TableCell>
-            <TableCell>{row.cpf}</TableCell>
+            <TableCell>{formatCPF(row.cpf)}</TableCell>
             <TableCell>{formatDateBR(row.dataNascimento)}</TableCell>
-            <TableCell>{row.telefones?.[0] || 'N/A'}</TableCell>
+            {/* NOVO: Aplica a máscara de telefone na tabela */}
+            <TableCell>{row.telefones?.[0] ? formatPhone(row.telefones[0]) : 'N/A'}</TableCell>
             <TableCell align="right">
               <Stack direction="row" spacing={1} justifyContent="flex-end">
-                
-                {/* NOVO BOTÃO: Prontuário Eletrônico integrado por Paciente */}
                 <Tooltip title="Ver Prontuário">
-                  <IconButton color="info" onClick={() => handleVerProntuario(row)}>
+                  <IconButton color="success" onClick={() => handleVerProntuario(row)}>
                     <AssignmentIcon />
                   </IconButton>
                 </Tooltip>
-
-                <Tooltip title="Histórico de Triagens">
-                  <IconButton color="success" onClick={() => navigate(`/screening/patient/${row.id}`)}>
-                    <HistoryIcon />
-                  </IconButton>
-                </Tooltip>
-
                 <IconButton color="primary" onClick={() => handleOpen(row)}><EditIcon /></IconButton>
                 <IconButton color="error" onClick={() => handleDelete(row.id)}><DeleteIcon /></IconButton>
               </Stack>
@@ -211,7 +235,15 @@ const Patients = () => {
             <TextField name="nomeSocial" label="Nome Social" fullWidth defaultValue={selectedPatient?.nomeSocial || ''} />
             
             <Stack direction="row" spacing={2}>
-              <TextField name="cpf" label="CPF" fullWidth defaultValue={selectedPatient?.cpf || ''} required />
+              <TextField 
+                name="cpf" 
+                label="CPF" 
+                fullWidth 
+                value={cpfValue}
+                onChange={(e) => setCpfValue(formatCPF(e.target.value))}
+                inputProps={{ maxLength: 14 }}
+                required 
+              />
               <TextField 
                 name="dataNascimento" 
                 label="Data Nasc." 
@@ -234,8 +266,26 @@ const Patients = () => {
 
             <Typography variant="subtitle2" color="textSecondary">Contatos</Typography>
             <Stack direction="row" spacing={2}>
-              <TextField name="tel1" label="Telefone Principal" fullWidth defaultValue={selectedPatient?.telefones?.[0] || ''} required />
-              <TextField name="tel2" label="Telefone Secundário" fullWidth defaultValue={selectedPatient?.telefones?.[1] || ''} />
+              {/* NOVO: Campos de telefone controlados com máscara */}
+              <TextField 
+                name="tel1" 
+                label="Telefone Principal" 
+                fullWidth 
+                value={tel1Value}
+                onChange={(e) => setTel1Value(formatPhone(e.target.value))}
+                inputProps={{ maxLength: 15 }} // (XX) XXXXX-XXXX = 15 caracteres
+                placeholder="(00) 00000-0000"
+                required 
+              />
+              <TextField 
+                name="tel2" 
+                label="Telefone Secundário" 
+                fullWidth 
+                value={tel2Value}
+                onChange={(e) => setTel2Value(formatPhone(e.target.value))}
+                inputProps={{ maxLength: 15 }}
+                placeholder="(00) 00000-0000"
+              />
             </Stack>
           </Stack>
         </DialogContent>

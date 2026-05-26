@@ -1,78 +1,48 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton, InputAdornment
+  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton, Grid
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SearchIcon from '@mui/icons-material/Search';
 import api from '../services/api';
 import GenericTable from '../components/GenericTable';
 
 const headCells = [
   { id: 'nome', label: 'Nome Completo' },
-  { id: 'email', label: 'E-mail / Login' },
-  { id: 'permissao', label: 'Permissão' },
+  { id: 'email', label: 'E-mail' },
+  { id: 'perfil', label: 'Perfil' },
+  { id: 'especialidade', label: 'Especialidade' },
   { id: 'actions', label: 'Ações', numeric: true },
 ];
 
 const Users = () => {
-  const [users, setUsers] = useState([]);
-  const [roles, setRoles] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+  const [perfis, setPerfis] = useState([]);
+  const [especialidades, setEspecialidades] = useState([]);
+
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
 
-  // 1. Busca de Usuários (Com suporte a Token Bearer injetado pelo interceptor)
+  // Carrega Utilizadores, Perfis e Especialidades da API
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const url = searchTerm
-          ? `/auth/usuarios?nome=${encodeURIComponent(searchTerm)}`
-          : '/auth/usuarios';
-        const response = await api.get(url);
-        setUsers(response.data);
+        const [resUsers, resPerfis, resEsp] = await Promise.all([
+          api.get('/auth/usuarios'),
+          api.get('/auth/perfis'),
+          api.get('/auth/especialidades')
+        ]);
+        setUsuarios(Array.isArray(resUsers.data) ? resUsers.data : []);
+        setPerfis(Array.isArray(resPerfis.data) ? resPerfis.data : []);
+        setEspecialidades(Array.isArray(resEsp.data) ? resEsp.data : []);
       } catch (error) {
-        console.error('Erro ao buscar usuários:', error);
-        if (error.response?.status === 403) {
-          alert("Acesso Negado: Seu perfil não possui autorização para listar usuários.");
-        }
+        console.error("Erro ao buscar dados de autenticação:", error);
       }
     };
-    fetchUsers();
-  }, [refreshKey, searchTerm]);
-
-  // 2. Busca de Perfis/Roles
-  useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const response = await api.get('/auth/perfis');
-        setRoles(response.data);
-      } catch (error) {
-        console.error('Erro ao buscar permissões:', error);
-      }
-    };
-    fetchRoles();
-  }, []);
-
-  // CORREÇÃO CRÍTICA: Varre o objeto ou string do perfil retornado pelo back
-  const selectedRoleId = useMemo(() => {
-    if (!selectedUser?.perfil || roles.length === 0) return '';
-    
-    // Trata se o backend retornar o objeto cheio ou apenas o ID/String
-    const perfilAlvo = typeof selectedUser.perfil === 'object' 
-      ? selectedUser.perfil.descricao 
-      : selectedUser.perfil;
-
-    const perfilNormalizado = String(perfilAlvo).trim().toLowerCase();
-    
-    const role = roles.find(
-      (r) => String(r.descricao || '').trim().toLowerCase() === perfilNormalizado || String(r.id) === perfilAlvo
-    );
-    return role?.id ?? '';
-  }, [selectedUser, roles]);
+    fetchData();
+  }, [refreshKey]);
 
   const handleOpen = (user = null) => {
     setSelectedUser(user);
@@ -84,37 +54,33 @@ const Users = () => {
     setSelectedUser(null);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Deseja realmente excluir este usuário?')) return;
-    try {
-      await api.delete(`/auth/usuarios/${id}`);
-      setRefreshKey((prev) => prev + 1);
-    } catch (error) {
-      console.error('Erro ao deletar:', error.response?.data || error);
-      alert(error.response?.data?.message || 'Erro ao deletar usuário.');
-    }
-  };
-
   const handleSave = async (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const data = Object.fromEntries(formData.entries());
+    
+    const senhaForm = formData.get('senha');
 
-    const perfilId = Number(data.perfil);
-    if (!perfilId || perfilId <= 0) {
-      alert('Selecione uma permissão válida.');
-      return;
+    if (!selectedUser && (!senhaForm || senhaForm.length < 8)) {
+        alert("A senha é obrigatória na criação e deve ter pelo menos 8 caracteres.");
+        return;
+    }
+    if (selectedUser && senhaForm && senhaForm.length < 8) {
+        alert("A nova senha deve ter pelo menos 8 caracteres.");
+        return;
     }
 
+    const especialidadeValue = formData.get('especialidade');
+
     const payload = {
-      nome: data.nome,
-      email: data.email,
-      dataNascimento: data.dataNascimento,
-      perfilId: perfilId, // CORREÇÃO: Alinhado com o DTO do Java que espera o ID explícito
+      nome: formData.get('nome'),
+      email: formData.get('email'),
+      dataNascimento: formData.get('dataNascimento'),
+      perfil: Number(formData.get('perfil')), 
+      especialidade: especialidadeValue ? Number(especialidadeValue) : null 
     };
 
-    if (!selectedUser?.id || (data.password && data.password.trim() !== '')) {
-      payload.senha = data.password;
+    if (senhaForm) {
+      payload.senha = senhaForm;
     }
 
     try {
@@ -123,111 +89,128 @@ const Users = () => {
       } else {
         await api.post('/auth/usuarios', payload);
       }
-      setRefreshKey((prev) => prev + 1);
+      setRefreshKey(old => old + 1);
       handleClose();
     } catch (error) {
-      console.error("Erro no salvamento:", error.response);
-      alert(error.response?.data?.message || "Erro ao salvar usuário.");
+      console.error("Erro ao salvar usuário:", error.response);
+      alert(error.response?.data?.message || "Erro ao processar e salvar usuário.");
     }
   };
 
-  // Helper para renderizar a tabela tratando perfis aninhados
-  const renderPerfilText = (perfilData) => {
-    if (!perfilData) return 'N/A';
-    return typeof perfilData === 'object' ? perfilData.descricao : perfilData;
-  };
-
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-          Gerenciamento de Usuários
-        </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+    <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', sm: 'center' }} 
+        spacing={2} 
+        sx={{ mb: 3 }}
+      >
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Gestão de Usuários</Typography>
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />} 
+          onClick={() => handleOpen()} 
+          fullWidth={{ xs: true, sm: false }}
+        >
           Novo Usuário
         </Button>
       </Stack>
 
-      {/* CORREÇÃO VISUAL: Input de busca que estava ausente no JSX original */}
-      <Box sx={{ mb: 3, maxWidth: 400 }}>
-        <TextField
-          fullWidth
-          size="small"
-          label="Buscar por nome..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon size="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
-
       <GenericTable
+        title="Usuários do Sistema"
         headCells={headCells}
-        rows={users}
-        renderRow={(row) => (
-          <>
-            <TableCell>{row.nome}</TableCell>
-            <TableCell>{row.email}</TableCell>
-            <TableCell>{renderPerfilText(row.perfil)}</TableCell>
-            <TableCell align="right">
-              <IconButton color="primary" onClick={() => handleOpen(row)}>
-                <EditIcon />
-              </IconButton>
-              <IconButton color="error" onClick={() => handleDelete(row.id)}>
-                <DeleteIcon />
-              </IconButton>
-            </TableCell>
-          </>
-        )}
+        rows={usuarios}
+        renderRow={(row) => {
+          // LÓGICA À PROVA DE BALA PARA O PERFIL:
+          const perfilObj = perfis.find(p => Number(p.id) === Number(row.perfil?.id || row.perfil));
+          const perfilTexto = row.perfil?.descricao || row.perfil?.nome || perfilObj?.descricao || perfilObj?.nome || row.perfil || 'N/A';
+
+          // LÓGICA À PROVA DE BALA PARA A ESPECIALIDADE:
+          const espObj = especialidades.find(e => Number(e.id) === Number(row.especialidade?.id || row.especialidade));
+          const espTexto = row.especialidade?.descricao || row.especialidade?.nome || espObj?.descricao || espObj?.nome || row.especialidade || '-';
+
+          return (
+            <>
+              <TableCell>{row.nome}</TableCell>
+              <TableCell>{row.email}</TableCell>
+              <TableCell>{perfilTexto}</TableCell>
+              <TableCell>{espTexto}</TableCell>
+              <TableCell align="right">
+                <IconButton color="primary" onClick={() => handleOpen(row)}><EditIcon /></IconButton>
+              </TableCell>
+            </>
+          );
+        }}
       />
 
-      <Dialog open={open} onClose={handleClose} component="form" onSubmit={handleSave}>
-        <DialogTitle>{selectedUser ? 'Editar Usuário' : 'Novo Usuário'}</DialogTitle>
+      <Dialog open={open} onClose={handleClose} component="form" onSubmit={handleSave} maxWidth="sm" fullWidth>
+        <DialogTitle>{selectedUser ? 'Editar' : 'Novo'} Usuário</DialogTitle>
         <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 1, minWidth: 420 }}>
-            <TextField name="nome" label="Nome" fullWidth defaultValue={selectedUser?.nome || ''} required />
-            <TextField name="email" label="E-mail" type="email" fullWidth defaultValue={selectedUser?.email || ''} required />
-            <TextField
-              name="dataNascimento"
-              label="Data de Nascimento"
-              type="date"
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              defaultValue={selectedUser?.dataNascimento || ''}
-              required
-            />
-            <TextField
-              name="password"
-              label={selectedUser ? 'Nova Senha (opcional)' : 'Senha'}
-              type="password"
-              fullWidth
-              required={!selectedUser}
-            />
-            <TextField
-              select
-              name="perfil"
-              label="Permissão"
-              fullWidth
-              defaultValue={selectedRoleId}
-              key={selectedRoleId} // Força re-render para atualizar o select na edição
-              required
-            >
-              {roles.map((role) => (
-                <MenuItem key={role.id} value={role.id}>
-                  {role.descricao}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
+          <Grid container spacing={3} sx={{ mt: 0.5 }}>
+            <Grid item xs={12}>
+              <TextField name="nome" label="Nome Completo" defaultValue={selectedUser?.nome || ''} fullWidth required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField name="email" type="email" label="E-mail" defaultValue={selectedUser?.email || ''} fullWidth required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                name="dataNascimento" 
+                type="date" 
+                label="Data de Nascimento" 
+                defaultValue={selectedUser?.dataNascimento || ''} 
+                InputLabelProps={{ shrink: true }} 
+                fullWidth 
+                required 
+              />
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                name="senha" 
+                type="password" 
+                label={selectedUser ? "Nova Senha (opcional)" : "Senha de Acesso"} 
+                fullWidth 
+                required={!selectedUser} 
+                helperText="Mínimo de 8 caracteres"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                select 
+                name="perfil" 
+                label="Perfil de Acesso" 
+                defaultValue={selectedUser?.perfil?.id || selectedUser?.perfil || selectedUser?.perfilId || ''} 
+                fullWidth 
+                required
+              >
+                {/* Agora procura por opt.descricao ou opt.nome */}
+                {perfis.map((opt) => (
+                  <MenuItem key={opt.id} value={opt.id}>{opt.descricao || opt.nome}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField 
+                select 
+                name="especialidade" 
+                label="Especialidade Médica (Apenas se aplicável)" 
+                defaultValue={selectedUser?.especialidade?.id || selectedUser?.especialidade || ''} 
+                fullWidth
+              >
+                <MenuItem value=""><em>Nenhuma / Não se aplica</em></MenuItem>
+                {/* Agora procura por opt.descricao ou opt.nome */}
+                {especialidades.map((opt) => (
+                  <MenuItem key={opt.id} value={opt.id}>{opt.descricao || opt.nome}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2.5 }}>
           <Button onClick={handleClose}>Cancelar</Button>
-          <Button type="submit" variant="contained">Salvar</Button>
+          <Button type="submit" variant="contained">Salvar Configurações</Button>
         </DialogActions>
       </Dialog>
     </Box>

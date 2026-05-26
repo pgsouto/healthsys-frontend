@@ -5,16 +5,17 @@ import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
-import MenuIcon from '@mui/icons-material/Menu';
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import { useNavigate } from 'react-router-dom'; // IMPORTAÇÃO ADICIONADA
 
-const settings = ['Perfil', 'Minha Conta', 'Sair'];
+const settings = [ 'Minha Conta', 'Sair'];
 
 function ResponsiveAppBar() {
   const [anchorElUser, setAnchorElUser] = React.useState(null);
+  const navigate = useNavigate(); // HOOK DE NAVEGAÇÃO ADICIONADO
 
   const handleOpenUserMenu = (event) => {
     setAnchorElUser(event.currentTarget);
@@ -24,15 +25,26 @@ function ResponsiveAppBar() {
     setAnchorElUser(null);
   };
 
+  // NOVA FUNÇÃO: Trata os cliques do menu
+  const handleMenuClick = (setting) => {
+    handleCloseUserMenu(); // Fecha o menu primeiro
+    
+    if (setting === 'Sair') {
+      localStorage.removeItem('token');
+      sessionStorage.clear(); 
+      navigate('/login');
+    } else if (setting === 'Minha Conta' || setting === 'Perfil') {
+      navigate('/profile'); // <-- ADICIONADO: Redireciona para o perfil!
+    }
+  };
+
   return (
     <AppBar 
       position="fixed" 
       sx={{ 
-        // Garante que a AppBar fique acima do Drawer (Menu Lateral)
         zIndex: (theme) => theme.zIndex.drawer + 1 
       }}
     >
-      {/* Usamos disableGutters e px: 2 para ocupar a largura total com elegância */}
       <Toolbar sx={{ px: 2 }}>
         
         {/* Ícone e Título para Desktop */}
@@ -49,7 +61,7 @@ function ResponsiveAppBar() {
             letterSpacing: '.1rem',
             color: 'inherit',
             textDecoration: 'none',
-            flexGrow: 1 // Faz com que o espaço vazio empurre o Avatar para a direita
+            flexGrow: 1 
           }}
         >
           HealthSys
@@ -99,7 +111,8 @@ function ResponsiveAppBar() {
             onClose={handleCloseUserMenu}
           >
             {settings.map((setting) => (
-              <MenuItem key={setting} onClick={handleCloseUserMenu}>
+              // ALTERAÇÃO AQUI: Chama a função handleMenuClick em vez de apenas fechar
+              <MenuItem key={setting} onClick={() => handleMenuClick(setting)}>
                 <Typography sx={{ textAlign: 'center' }}>{setting}</Typography>
               </MenuItem>
             ))}

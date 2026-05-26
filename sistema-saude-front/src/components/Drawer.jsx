@@ -17,6 +17,7 @@ import NewspaperIcon from '@mui/icons-material/Newspaper';
 import VaccinesIcon from '@mui/icons-material/Vaccines';
 import PersonalInjuryIcon from '@mui/icons-material/PersonalInjury';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation'; // Ícone lindo para o Prontuário
+import BedIcon from '@mui/icons-material/Bed';
 import { Link } from 'react-router-dom'; 
 
 const drawerWidth = 240; 
@@ -89,11 +90,19 @@ export default function PermanentDrawer() {
           </ListItem>
           
           <ListItem disablePadding>
-            <ListItemButton component={Link} to="/vaccines">
+            <ListItemButton component={Link} to="/clinical_data">
               <ListItemIcon><VaccinesIcon /></ListItemIcon>
-              <ListItemText primary="Vacinas" />
+              <ListItemText primary="Dados Clínicos" />
             </ListItemButton>
           </ListItem>
+
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/beds">
+              <ListItemIcon><BedIcon /></ListItemIcon>
+              <ListItemText primary="Leitos" />
+            </ListItemButton>
+          </ListItem>
+          
           
           <Divider />
           
@@ -110,7 +119,7 @@ export default function PermanentDrawer() {
               <ListItemText primary="Permissões" />
             </ListItemButton>
           </ListItem>*/}
-          
+          {/*
           <Divider />
           
           <ListItem disablePadding>
@@ -118,7 +127,7 @@ export default function PermanentDrawer() {
               <ListItemIcon><NewspaperIcon /></ListItemIcon>
               <ListItemText primary="Mural de notícias" />
             </ListItemButton>
-          </ListItem>
+          </ListItem>*/}
         </List>
       </Box>
     </Drawer>

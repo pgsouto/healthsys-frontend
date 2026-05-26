@@ -6,7 +6,10 @@ import Appointments from "./pages/Appointments";
 import Users from "./pages/Users";
 import Login from "./pages/Login";
 import Screening from "./pages/screening";
-import Dashboard from "./pages/Dashboard"; // Importe a página de dashboard que criamos!
+import Dashboard from "./pages/Dashboard"; 
+import Beds from "./pages/Beds";
+import MyProfile from "./pages/MyProfile";
+import Vaccines from "./pages/Vaccines";
 
 // Componente para proteger as rotas
 const PrivateRoute = ({ children }) => {
@@ -44,7 +47,9 @@ function App() {
           <Route path="appointments" element={<Appointments />} />
           <Route path="users" element={<Users />} />
           <Route path="screening" element={<Screening />} />
-          
+          <Route path="beds" element={<PrivateRoute><Beds /></PrivateRoute>} />
+          <Route path="profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
+          <Route path="clinical_data" element={<PrivateRoute><Vaccines /></PrivateRoute>} />
           {/* Rota do seu novo Dashboard de Double Tab */}
           <Route path="dashboard" element={<Dashboard />} /> 
         </Route>
