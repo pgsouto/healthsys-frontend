@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton, Chip, Autocomplete, Grid, Divider
+  DialogActions, TextField, Stack, MenuItem, TableCell, IconButton, Chip, Autocomplete, Grid, Divider, CircularProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import api from '../services/api';
 import GenericTable from '../components/GenericTable';
 
 const headCells = [
+  { id: 'data', label: 'Entrada' }, // NOVA COLUNA
   { id: 'paciente', label: 'Paciente' },
   { id: 'risco', label: 'Classificação' },
-  { id: 'status', label: 'Status' },
+  { id: 'status', label: 'Status Atual' },
   { id: 'actions', label: 'Ações', numeric: true },
 ];
 
@@ -27,11 +29,18 @@ const getRiscoColor = (idRisco) => {
   }
 };
 
+const formatTimeBR = (isoDate) => {
+  if (!isoDate) return '-';
+  const date = new Date(isoDate);
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' - ' + date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+};
+
 const Screening = () => {
   const [triagens, setTriagens] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [sintomas, setSintomas] = useState([]);
   const [statusOptions, setStatusOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [open, setOpen] = useState(false);
   const [selectedTriagem, setSelectedTriagem] = useState(null);
@@ -39,14 +48,21 @@ const Screening = () => {
   const [selectedSintomas, setSelectedSintomas] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Carrega as triagens existentes
+  // GET: Busca registros de triagens ativos na fila
   useEffect(() => {
+    setLoading(true);
     api.get('/tri/triagens')
-      .then(res => setTriagens(Array.isArray(res.data) ? res.data : []))
-      .catch(err => console.error('Erro ao buscar triagens:', err));
+      .then(res => {
+        // Ordena automaticamente colocando os riscos mais altos (Emergências) no topo da fila
+        const dados = Array.isArray(res.data) ? res.data : [];
+        const ordenadas = dados.sort((a, b) => Number(b.risco || 0) - Number(a.risco || 0));
+        setTriagens(ordenadas);
+      })
+      .catch(err => console.error('Erro ao buscar triagens:', err))
+      .finally(() => setLoading(false));
   }, [refreshKey]);
 
-  // Carrega opções iniciais (Sintomas, Status e Pacientes)
+  // GET: Carrega opções estruturais do banco de dados (Sintomas, Status e Pacientes)
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -59,13 +75,13 @@ const Screening = () => {
         setStatusOptions(Array.isArray(resStatus.data) ? resStatus.data : []);
         setPacientes(Array.isArray(resPacientes.data) ? resPacientes.data : []);
       } catch (err) {
-        console.error('Erro ao carregar opções:', err);
+        console.error('Erro ao carregar opções para triagem:', err);
       }
     };
     fetchOptions();
   }, []);
 
-  // Lógica de cálculo de risco baseada no maior risco mapeado
+  // Algoritmo de decisão clínica: Filtra e localiza a queixa de maior gravidade/risco
   const calcularRiscoFinal = (sintomasEscolhidos) => {
     if (!sintomasEscolhidos || sintomasEscolhidos.length === 0) return null;
     
@@ -76,7 +92,6 @@ const Screening = () => {
     });
   };
 
-  // Memoriza o risco sugerido para evitar re-cálculos e quebras de renderização
   const riscoSugerido = useMemo(() => calcularRiscoFinal(selectedSintomas), [selectedSintomas]);
 
   const handleOpen = (triagem = null) => {
@@ -84,7 +99,7 @@ const Screening = () => {
     if (triagem) {
       const idPacienteAlvo = triagem.pacienteId || triagem.paciente;
       setPatientValue(pacientes.find(p => p.id === idPacienteAlvo) || null);
-      setSelectedSintomas([]);
+      setSelectedSintomas([]); // Reseta para seleção limpa
     } else {
       setPatientValue(null);
       setSelectedSintomas([]);
@@ -103,25 +118,36 @@ const Screening = () => {
     event.preventDefault();
     
     if (!patientValue || !patientValue.id) {
-      alert("Selecione um paciente válido na lista antes de prosseguir.");
+      alert("Selecione um paciente cadastrado para abrir a admissão.");
       return;
     }
-    if (selectedSintomas.length === 0) {
-      alert("Selecione pelo menos um sintoma para classificar o risco de Manchester.");
+
+    // RESOLUÇÃO: Se estiver editando e não escolheu novos sintomas, mantém o risco original já salvo no back
+    let riscoFinalId = selectedTriagem ? selectedTriagem.risco : 1;
+
+    if (selectedSintomas.length > 0) {
+      const riscoSugeridoId = riscoSugerido && typeof riscoSugerido.risco === 'object' 
+        ? riscoSugerido.risco.id 
+        : (riscoSugerido?.risco || riscoSugerido?.riscoId);
+      riscoFinalId = Number(riscoSugeridoId);
+    } else if (!selectedTriagem) {
+      alert("Selecione ao menos uma queixa/sintoma do protocolo para classificar o paciente.");
       return;
     }
 
     const formData = new FormData(event.currentTarget);
-    const riscoSugeridoId = riscoSugerido && typeof riscoSugerido.risco === 'object' 
-      ? riscoSugerido.risco.id 
-      : (riscoSugerido?.risco || riscoSugerido?.riscoId);
 
-    // PAYLOAD TOTALMENTE AJUSTADO AO TRIAGEM_REQUEST_DTO DO JAVA
+    // PAYLOAD EXATO CONFORME TRIAGEMREQUESTDTO.JAVA
     const payload = {
       paciente: patientValue.id,
-      risco: Number(riscoSugeridoId || 1),
+      risco: riscoFinalId,
       status: Number(formData.get('statusId') || 1),
-      dataCriacao: selectedTriagem?.dataCriacao || new Date().toISOString(), // Injeta a data atual (obrigatória no back)
+      dataCriacao: selectedTriagem?.dataCriacao || (() => {
+        const agora = new Date();
+        // Subtrai o fuso horário local para gerar uma string ISO baseada na hora real do PC
+        const tzOffset = agora.getTimezoneOffset() * 60000;
+        return new Date(agora.getTime() - tzOffset).toISOString().slice(0, -1);
+      })(),
       temperatura: formData.get('temperatura') || null,
       glicemia: formData.get('glicemia') || null,
       frequenciaCardiaca: formData.get('frequenciaCardiaca') || null,
@@ -138,7 +164,6 @@ const Screening = () => {
       setRefreshKey(old => old + 1);
       handleClose();
     } catch (error) {
-      console.error("Erro ao salvar triagem:", error.response);
       alert(error.response?.data?.message || "Erro ao processar e salvar triagem clínica.");
     }
   };
@@ -146,9 +171,16 @@ const Screening = () => {
   const riscoSugeridoId = riscoSugerido && typeof riscoSugerido.risco === 'object' ? riscoSugerido.risco.id : (riscoSugerido?.risco || riscoSugerido?.riscoId);
   const riscoSugeridoDesc = riscoSugerido && typeof riscoSugerido.risco === 'object' ? riscoSugerido.risco.descricao : (riscoSugerido?.riscoDescricao || 'Triagem');
 
+  if (loading && triagens.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
-      {/* Topo Responsivo */}
       <Stack 
         direction={{ xs: 'column', sm: 'row' }} 
         justifyContent="space-between" 
@@ -168,7 +200,7 @@ const Screening = () => {
       </Stack>
 
       <GenericTable
-        title="Fila de Espera - Protocolo de Manchester"
+        title="Fila de Espera Ativa - Protocolo de Manchester"
         headCells={headCells}
         rows={triagens}
         renderRow={(row) => {
@@ -191,15 +223,29 @@ const Screening = () => {
 
           return (
             <>
-              <TableCell>{pacientes.find(p => p.id === idPac)?.nome || 'Buscando Paciente...'}</TableCell>
+              {/* RENDERIZAÇÃO DA DATA DE ENTRADA CRONOLÓGICA */}
+              <TableCell sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <AccessTimeIcon fontSize="inherit" />
+                  <span>{formatTimeBR(row.dataCriacao)}</span>
+                </Stack>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{pacientes.find(p => p.id === idPac)?.nome || 'Buscando Paciente...'}</TableCell>
               <TableCell>
                 <Chip 
                   label={getRiscoTexto().toUpperCase()} 
                   color={getRiscoColor(idRiscoReal)} 
-                  sx={{ fontWeight: 'bold' }}
+                  sx={{ fontWeight: 'bold', width: 130 }}
                 />
               </TableCell>
-              <TableCell>{statusOptions.find(s => s.id === row.statusId || s.id === row.status)?.descricao || 'Pendente'}</TableCell>
+              <TableCell>
+                <Chip 
+                  label={(statusOptions.find(s => s.id === row.statusId || s.id === row.status)?.descricao || 'Pendente').toUpperCase()} 
+                  variant="outlined" 
+                  size="small"
+                  sx={{ fontWeight: 'bold' }} 
+                />
+              </TableCell>
               <TableCell align="right">
                 <IconButton color="primary" onClick={() => handleOpen(row)}><EditIcon /></IconButton>
               </TableCell>
@@ -209,24 +255,23 @@ const Screening = () => {
       />
 
       <Dialog open={open} onClose={handleClose} component="form" onSubmit={handleSave} maxWidth="md" fullWidth>
-        <DialogTitle>{selectedTriagem ? 'Atualizar' : 'Iniciar'} Classificação de Risco</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>{selectedTriagem ? 'Atualizar Evolução do Atendimento' : 'Iniciar Classificação de Risco'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3} sx={{ mt: 0.5 }}>
             
-            {/* SEÇÃO 1: IDENTIFICAÇÃO */}
             <Grid item xs={12}>
               <Autocomplete
                 options={pacientes}
                 getOptionLabel={(opt) => opt ? `${opt.nome || ''} (CPF: ${opt.cpf || ''})` : ''}
                 value={patientValue}
+                disabled={!!selectedTriagem} // Bloqueia troca de paciente se estiver apenas editando a triagem
                 onChange={(_, val) => setPatientValue(val)}
-                renderInput={(params) => <TextField {...params} label="Identificar Paciente" required />}
+                renderInput={(params) => <TextField {...params} label="Identificar Paciente Cadastrado" required />}
               />
             </Grid>
 
-            {/* SEÇÃO 2: SINAIS VITAIS */}
             <Grid item xs={12}>
-              <Divider sx={{ mb: 1 }}>Sinais Vitais do Paciente</Divider>
+              <Divider sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>Sinais Vitais (Mensuração Biomédica)</Divider>
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField name="temperatura" label="Temp. (°C)" defaultValue={selectedTriagem?.temperatura || ""} fullWidth placeholder="Ex: 36.5" />
@@ -238,15 +283,14 @@ const Screening = () => {
               <TextField name="frequenciaCardiaca" label="Freq. Cardíaca (bpm)" defaultValue={selectedTriagem?.frequenciaCardiaca || ""} fullWidth placeholder="Ex: 80" />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField name="saturacaoOxigenio" label="Saturação (%)" defaultValue={selectedTriagem?.saturacaoOxigenio || ""} fullWidth placeholder="Ex: 98" />
+              <TextField name="saturacaoOxigenio" label="Saturação SPO2 (%)" defaultValue={selectedTriagem?.saturacaoOxigenio || ""} fullWidth placeholder="Ex: 98" />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField name="frequenciaRespiratoria" label="Freq. Respiratória (irpm)" defaultValue={selectedTriagem?.frequenciaRespiratoria || ""} fullWidth placeholder="Ex: 16" />
             </Grid>
 
-            {/* SEÇÃO 3: AVALIAÇÃO DE SINTOMAS */}
             <Grid item xs={12}>
-              <Divider sx={{ mb: 1 }}>Protocolo de Manchester</Divider>
+              <Divider sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>Protocolo de Manchester</Divider>
             </Grid>
             <Grid item xs={12}>
               <Autocomplete
@@ -262,18 +306,25 @@ const Screening = () => {
                   return `${opt.descricao || ''} (${String(descRisco).toUpperCase()})`;
                 }}
                 onChange={(_, val) => setSelectedSintomas(val || [])}
-                renderInput={(params) => <TextField {...params} label="Sintomas e Queixas Observadas" placeholder="Selecione..." />}
+                renderInput={(params) => <TextField {...params} label="Avaliação de Sintomas e Queixas" placeholder={selectedTriagem ? "Manter queixas originais ou redefinir..." : "Selecione..."} />}
               />
             </Grid>
 
-            {/* SEÇÃO 4: RESULTADO AUTOMÁTICO */}
             <Grid item xs={12} md={6}>
-              <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', boxSizing: 'border-box' }}>
-                <Typography variant="subtitle2" gutterBottom sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>GRAVIDADE CALCULADA:</Typography>
-                {riscoSugerido ? (
+              <Box sx={{ p: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', boxSizing: 'border-box' }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'text.secondary' }}>
+                  {selectedSintomas.length > 0 ? 'GRAVIDADE SUGERIDA:' : 'GRAVIDADE ATUAL:'}
+                </Typography>
+                {selectedSintomas.length > 0 ? (
                   <Chip 
                     label={String(riscoSugeridoDesc).toUpperCase()} 
                     color={getRiscoColor(riscoSugeridoId)}
+                    sx={{ fontSize: '1rem', p: 2, height: 'auto', fontWeight: 'bold' }}
+                  />
+                ) : selectedTriagem ? (
+                  <Chip 
+                    label={selectedTriagem.riscoDescricao?.toUpperCase() || (Number(selectedTriagem.risco) === 5 ? 'EMERGÊNCIA' : Number(selectedTriagem.risco) === 4 ? 'MUITO URGENTE' : Number(selectedTriagem.risco) === 3 ? 'URGENTE' : Number(selectedTriagem.risco) === 2 ? 'POUCO URGENTE' : 'NÃO URGENTE')} 
+                    color={getRiscoColor(selectedTriagem.risco)}
                     sx={{ fontSize: '1rem', p: 2, height: 'auto', fontWeight: 'bold' }}
                   />
                 ) : (
@@ -282,18 +333,17 @@ const Screening = () => {
               </Box>
             </Grid>
 
-            {/* SEÇÃO 5: STATUS */}
             <Grid item xs={12} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
               <TextField 
                 select 
                 name="statusId" 
-                label="Status Inicial do Atendimento" 
+                label="Status do Encaminhamento" 
                 defaultValue={selectedTriagem?.statusId || selectedTriagem?.status || 1} 
                 fullWidth 
                 required
               >
                 {statusOptions.map((opt) => (
-                  <MenuItem key={opt.id} value={opt.id}>{opt.descricao}</MenuItem>
+                  <MenuItem key={opt.id} value={opt.id}>{opt.descricao.toUpperCase()}</MenuItem>
                 ))}
               </TextField>
             </Grid>
@@ -301,8 +351,8 @@ const Screening = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={handleClose}>Cancelar</Button>
-          <Button type="submit" variant="contained">Salvar e Enviar para Fila</Button>
+          <Button onClick={handleClose} color="inherit">Cancelar</Button>
+          <Button type="submit" variant="contained">Salvar e Atualizar Fila</Button>
         </DialogActions>
       </Dialog>
     </Box>

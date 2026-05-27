@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Stack, MenuItem, Grid, Card, CardContent,
-  Chip, Autocomplete, IconButton, Divider, CircularProgress, Avatar
+  Chip, Autocomplete, Divider, CircularProgress, Avatar
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import BedIcon from '@mui/icons-material/Bed';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import BuildIcon from '@mui/icons-material/Build';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import NoCrashIcon from '@mui/icons-material/NoCrash';
+import PersonIcon from '@mui/icons-material/Person';
 import api from '../services/api';
 
 const getStatusConfig = (status) => {
@@ -17,6 +17,7 @@ const getStatusConfig = (status) => {
   if (s.includes('LIVRE')) return { color: 'success', icon: <BedIcon />, label: 'LIVRE' };
   if (s.includes('OCUPADO')) return { color: 'error', icon: <LocalHospitalIcon />, label: 'OCUPADO' };
   if (s.includes('MANUTENCAO') || s.includes('MANUTENÇÃO')) return { color: 'warning', icon: <BuildIcon />, label: 'EM MANUTENÇÃO' };
+  if (s.includes('HIGIENIZACAO') || s.includes('HIGIENIZAÇÃO')) return { color: 'info', icon: <NoCrashIcon />, label: 'HIGIENIZAÇÃO' };
   return { color: 'default', icon: <BedIcon />, label: s };
 };
 
@@ -51,13 +52,11 @@ const Beds = () => {
     fetchData();
   }, [refreshKey]);
 
-  const handleOpenLeitoModal = (leito = null) => {
-    setSelectedLeito(leito);
+  const handleOpenLeitoModal = () => {
     setOpenLeitoModal(true);
   };
 
   const handleCloseLeitoModal = () => {
-    setSelectedLeito(null);
     setOpenLeitoModal(false);
   };
 
@@ -65,7 +64,6 @@ const Beds = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    // CAMPOS ALINHADOS EXATAMENTE COM LEITO.JAVA (codigo e ala)
     const payload = {
       codigo: formData.get('codigo'),
       ala: formData.get('ala').toUpperCase(),
@@ -73,25 +71,25 @@ const Beds = () => {
     };
 
     try {
-      if (selectedLeito?.id) {
-        await api.put(`/api/leitos/${selectedLeito.id}`, payload);
-      } else {
-        await api.post('/api/leitos', payload);
-      }
+      // NOTA: Apenas POST é suportado pelo LeitoController.java do backend
+      await api.post('/api/leitos', payload);
       setRefreshKey(old => old + 1);
       handleCloseLeitoModal();
     } catch (error) {
-      alert(error.response?.data?.message || "Erro ao salvar especificações do leito.");
+      alert(error.response?.data?.message || "Erro ao cadastrar leito hospitalar.");
     }
   };
 
-  const handleDeleteLeito = async (id) => {
-    if (window.confirm('Deseja realmente remover este leito do sistema hospitalar?')) {
+  // NOVO: Método para liberar leito ocupado diretamente via Backend
+  const handleLiberarLeito = async (idLeito) => {
+    if (window.confirm("Confirmar desocupação do leito e emissão de alta lógica?")) {
       try {
-        await api.delete(`/api/leitos/${id}`);
+        // Rota mapeada ao @PostMapping("/{id}/liberar") do LeitoController
+        await api.post(`/api/leitos/${idLeito}/liberar`);
+        alert("Leito desocupado e higienizado com sucesso!");
         setRefreshKey(old => old + 1);
       } catch (error) {
-        alert("Erro ao excluir leito.");
+        alert("Erro ao tentar liberar leito.");
       }
     }
   };
@@ -111,7 +109,7 @@ const Beds = () => {
   const handleInternar = async (e) => {
     e.preventDefault();
     if (!patientValue) {
-      alert("Por favor, selecione um paciente.");
+      alert("Por favor, selecione um paciente cadastrado.");
       return;
     }
 
@@ -119,7 +117,7 @@ const Beds = () => {
     const diagnostico = formData.get('diagnostico') || 'Admissão Hospitalar';
 
     try {
-      // CORREÇÃO CRÍTICA: Envia os dados como Query Params para o Prontuário
+      // Mapeado para o Prontuário que gerencia a transação distribuída síncrona
       const url = `/api/prontuarios/internar?pacienteId=${patientValue.id}&leitoId=${selectedLeito.id}&diagnostico=${encodeURIComponent(diagnostico)}`;
       await api.post(url);
       
@@ -142,9 +140,9 @@ const Beds = () => {
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Gestão de Leitos</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenLeitoModal()}>
-          Adicionar Leito
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Camas e Leitos</Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenLeitoModal}>
+          Cadastrar Novo Leito
         </Button>
       </Stack>
 
@@ -152,6 +150,12 @@ const Beds = () => {
         {leitos.map((leito) => {
           const config = getStatusConfig(leito.status);
           const isLivre = leito.status === 'LIVRE';
+          const isOcupado = leito.status === 'OCUPADO';
+
+          // NOVO: Cruza informações para descobrir o doente internado
+          const pacienteNome = isOcupado 
+            ? (pacientes.find(p => p.id === leito.pacienteId)?.nome || "Paciente Identificado") 
+            : null;
 
           return (
             <Grid item xs={12} sm={6} md={4} lg={3} key={leito.id}>
@@ -174,24 +178,32 @@ const Beds = () => {
                     {leito.codigo || `Leito #${leito.id}`}
                   </Typography>
                   <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                    Ala: <strong>{leito.ala || 'Geral'}</strong>
+                    Ala Hospitalar: <strong>{leito.ala || 'Geral'}</strong>
                   </Typography>
 
                   <Divider sx={{ my: 1.5 }} />
 
-                  <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <IconButton size="small" onClick={() => handleOpenLeitoModal(leito)} color="primary">
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteLeito(leito.id)} color="error">
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                    
+                  {/* EXIBIÇÃO EM TEMPO REAL DO OCUPANTE */}
+                  {isOcupado && (
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2, bgcolor: '#fff5f5', p: 1, borderRadius: 1 }}>
+                      <PersonIcon color="error" fontSize="small" />
+                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#c62828' }}>
+                        Ocupante: {pacienteNome}
+                      </Typography>
+                    </Stack>
+                  )}
+
+                  <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
                     {isLivre && (
                       <Button size="small" variant="contained" color="success" onClick={() => handleOpenInternacao(leito)}>
-                        Internar
+                        Internar Paciente
+                      </Button>
+                    )}
+                    
+                    {/* NOVO: Botão de Ação para desocupar leitos de forma dinâmica */}
+                    {isOcupado && (
+                      <Button size="small" variant="contained" color="warning" onClick={() => handleLiberarLeito(leito.id)}>
+                        Liberar Leito
                       </Button>
                     )}
                   </Stack>
@@ -202,30 +214,29 @@ const Beds = () => {
         })}
       </Grid>
 
-      {/* Modal de Criar/Editar Leito */}
+      {/* Modal de Cadastrar Leito */}
       <Dialog open={openLeitoModal} onClose={handleCloseLeitoModal} component="form" onSubmit={handleSaveLeito} maxWidth="xs" fullWidth>
-        <DialogTitle>{selectedLeito ? 'Editar Configurações' : 'Novo Leito'}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Inserir Novo Leito no Sistema</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <TextField name="codigo" label="Código do Leito (Ex: UTI-01, ENF-102)" defaultValue={selectedLeito?.codigo || ''} fullWidth required />
-            <TextField name="ala" label="Ala Hospitalar (Ex: UTI, ENFERMARIA, PEDIATRIA)" defaultValue={selectedLeito?.ala || ''} fullWidth required />
-            <TextField select name="status" label="Status Inicial" defaultValue={selectedLeito?.status || 'LIVRE'} fullWidth required>
-              <MenuItem value="LIVRE">Livre</MenuItem>
-              <MenuItem value="OCUPADO">Ocupado</MenuItem>
-              <MenuItem value="MANUTENCAO">Em Manutenção</MenuItem>
-              <MenuItem value="HIGIENIZACAO">Em Higienização</MenuItem>
+            <TextField name="codigo" label="Código Identificador (Ex: UTI-10, ENF-02)" fullWidth placeholder="Digite o código..." required />
+            <TextField name="ala" label="Ala Hospitalar (Ex: UTI, PEDIATRIA, ISOLAMENTO)" fullWidth placeholder="Digite a ala..." required />
+            <TextField select name="status" label="Estado Inicial" defaultValue="LIVRE" fullWidth required>
+              <MenuItem value="LIVRE">LIVRE</MenuItem>
+              <MenuItem value="MANUTENCAO">EM MANUTENÇÃO</MenuItem>
+              <MenuItem value="HIGIENIZACAO">EM HIGIENIZAÇÃO</MenuItem>
             </TextField>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseLeitoModal}>Cancelar</Button>
-          <Button type="submit" variant="contained">Confirmar</Button>
+          <Button onClick={handleCloseLeitoModal} color="inherit">Cancelar</Button>
+          <Button type="submit" variant="contained">Cadastrar</Button>
         </DialogActions>
       </Dialog>
 
       {/* Modal de Internamento */}
       <Dialog open={openInternacaoModal} onClose={handleCloseInternacao} component="form" onSubmit={handleInternar} maxWidth="sm" fullWidth>
-        <DialogTitle>Internar Paciente no {selectedLeito?.codigo}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Internar Paciente no {selectedLeito?.codigo}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <Autocomplete
@@ -239,8 +250,8 @@ const Beds = () => {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseInternacao}>Cancelar</Button>
-          <Button type="submit" variant="contained" color="success">Efetuar Admissão</Button>
+          <Button onClick={handleCloseInternacao} color="inherit">Cancelar</Button>
+          <Button type="submit" variant="contained" color="success">Confirmar Admissão</Button>
         </DialogActions>
       </Dialog>
     </Box>
