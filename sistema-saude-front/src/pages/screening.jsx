@@ -202,7 +202,14 @@ const Screening = () => {
       <GenericTable
         title="Fila de Espera Ativa - Protocolo de Manchester"
         headCells={headCells}
-        rows={triagens}
+        rows={triagens.filter(t => {
+          // Captura o ID ou texto do status atual da triagem
+          const statusId = Number(t.statusId || t.status?.id || t.status || 1);
+          
+          // No banco do Ian, Status 1 = PENDENTE/EM ESPERA, Status 2 = EM ATENDIMENTO
+          // Statuses maiores (como Finalizado ou Cancelado) são ocultados da fila ativa
+          return statusId === 1 || statusId === 2;
+        })}
         renderRow={(row) => {
           const idPac = row.pacienteId || row.paciente;
           const idRiscoReal = row.riscoId || (row.risco && typeof row.risco === 'object' ? row.risco.id : row.risco);

@@ -1,34 +1,44 @@
-import { Box, Toolbar } from "@mui/material";
-import ResponsiveAppBar from "./Appbar";
-import TemporaryDrawer from "./Drawer"; // Seu menu lateral
-import { Outlet } from "react-router-dom"; // Onde as páginas vão renderizar
+import React, { useEffect } from 'react';
+import { Box, Toolbar } from '@mui/material';
+import { Outlet } from 'react-router-dom';
+import PermanentDrawer from './Drawer';
+import PrimarySearchAppBar from './Appbar';
 
-const Layout = () => {
+export default function Layout() {
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    // Decodifica o perfil para assinar o canal correto (Ex: cardiologia, clinico, geral)
+    const base64Url = token.split('.')[1];
+    const decoded = JSON.parse(window.atob(base64Url.replace(/-/g, '+').replace(/_/g, '/')));
+    const especialidade = decoded?.especialidade || 'geral';
+
+    // Abre a conexão contínua SSE com o notification-service através do gateway
+    const eventSource = new EventSource(`http://localhost:8080/not/notifications/stream/${especialidade.toLowerCase()}`);
+
+    eventSource.onmessage = (event) => {
+      // Quando o RabbitMQ despacha uma mensagem, ela cai aqui instantaneamente!
+      alert(`🚨 ALERTA HOSPITALAR EM TEMPO REAL: ${event.data}`);
+    };
+
+    eventSource.onerror = () => {
+      console.log("A aguardar reconexão com o canal de notificações...");
+    };
+
+    return () => {
+      eventSource.close(); // Fecha a ligação ao sair do sistema
+    };
+  }, []);
+
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* 1. Barra Superior */}
-      <ResponsiveAppBar />
-
-      {/* 2. Menu Lateral */}
-      <TemporaryDrawer />
-
-      {/* 3. Área de Conteúdo Principal */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - 240px)` }, // Ajusta conforme a largura do seu Drawer
-        }}
-      >
-        {/* Esse Toolbar serve como um "espaçador" para o conteúdo não ficar embaixo da AppBar */}
-        <Toolbar /> 
-        
-        {/* O Outlet é onde as páginas (Pacientes, Home, etc) aparecerão */}
-        <Outlet />
+      <PrimarySearchAppBar />
+      <PermanentDrawer />
+      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - 240px)` } }}>
+        <Toolbar />
+        <Outlet /> {/* Aqui são renderizadas as páginas */}
       </Box>
     </Box>
   );
-};
-
-export default Layout;
+}
