@@ -10,21 +10,16 @@ import Dashboard from "./pages/Dashboard";
 import Beds from "./pages/Beds";
 import MyProfile from "./pages/MyProfile";
 import Vaccines from "./pages/Vaccines";
-
-// Componente para proteger as rotas
-const PrivateRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" />;
-};
+import PrivateRoute from "./routes/PrivateRoute"; // Importação unificada
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rota de Login: FORA do Layout */}
+        {/* Rota de Login Pública */}
         <Route path="/login" element={<Login />} />
 
-        {/* Rotas Protegidas: DENTRO do Layout */}
+        {/* Layout Geral Protegido (Garante autenticação básica) */}
         <Route 
           path="/" 
           element={
@@ -33,28 +28,88 @@ function App() {
             </PrivateRoute>
           }
         >
-          {/* Rota Inicial */}
-          <Route index element={<div>Página Inicial do Hospital</div>} />
+          {/* Rota Inicial Genérica */}
+          <Route index element={<div style={{ padding: 20 }}><h3>Bem-vindo ao HealthSys</h3><p>Selecione um módulo no menu lateral para iniciar as operações clínicas.</p></div>} />
           
-          <Route path="patients" element={<Patients />} />
+          {/* Módulos com Controle Fino por Perfis do Backend */}
+          <Route 
+            path="patients" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Administração", "Recepcionista", "Médico(a)", "Enfermeiro(a)"]}>
+                <Patients />
+              </PrivateRoute>
+            } 
+          />
           
-          {/* OPÇÃO 1: Acessar prontuário com o ID na URL (Ex: /patients/123-uuid) */}
-          <Route path="patients/:id" element={<MedicalRecord />} />
+          <Route 
+            path="patients/:id" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Médico(a)", "Enfermeiro(a)"]}>
+                <MedicalRecord />
+              </PrivateRoute>
+            } 
+          />
           
-          {/* OPÇÃO 2: Acessar prontuário direto pelo menu lateral sidebar (Ex: /medical-records) */}
-          <Route path="medical-records" element={<MedicalRecord />} />
+          <Route 
+            path="medical-records" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Médico(a)", "Enfermeiro(a)"]}>
+                <MedicalRecord />
+              </PrivateRoute>
+            } 
+          />
           
+          <Route 
+            path="users" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Administração"]}>
+                <Users />
+              </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+            path="screening" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Equipe de Triagem", "Enfermeiro(a)", "Médico(a)"]}>
+                <Screening />
+              </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+            path="beds" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Médico(a)", "Enfermeiro(a)", "Administração"]}>
+                <Beds />
+              </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+            path="clinical_data" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Médico(a)", "Enfermeiro(a)"]}>
+                <Vaccines />
+              </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+            path="dashboard" 
+            element={
+              <PrivateRoute allowedRoles={["ADMIN", "Administração", "Médico(a)"]}>
+                <Dashboard />
+              </PrivateRoute>
+            } 
+          /> 
+
+          {/* Perfil Próprio: Todo usuário logado pode acessar */}
+          <Route path="profile" element={<MyProfile />} />
           <Route path="appointments" element={<Appointments />} />
-          <Route path="users" element={<Users />} />
-          <Route path="screening" element={<Screening />} />
-          <Route path="beds" element={<PrivateRoute><Beds /></PrivateRoute>} />
-          <Route path="profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
-          <Route path="clinical_data" element={<PrivateRoute><Vaccines /></PrivateRoute>} />
-          {/* Rota do seu novo Dashboard de Double Tab */}
-          <Route path="dashboard" element={<Dashboard />} /> 
         </Route>
 
-        {/* Rota para 404 */}
+        {/* Rota Fallback para 404 */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
