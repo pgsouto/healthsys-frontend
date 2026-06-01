@@ -15,8 +15,7 @@ export default function Layout() {
     const especialidade = decoded?.especialidade || 'geral';
 
     // Abre a conexão contínua SSE com o notification-service através do gateway
-    const eventSource = new EventSource(`http://localhost:8080/not/notifications/stream/${especialidade.toLowerCase()}`);
-
+    const eventSource = new EventSource(`http://localhost:8080/not/notifications/stream/${especialidade.toLowerCase()}?token=${token}`);
     eventSource.onmessage = (event) => {
       // Quando o RabbitMQ despacha uma mensagem, ela cai aqui instantaneamente!
       alert(`🚨 ALERTA HOSPITALAR EM TEMPO REAL: ${event.data}`);

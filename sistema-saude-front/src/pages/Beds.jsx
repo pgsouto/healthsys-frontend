@@ -38,7 +38,7 @@ const Beds = () => {
       try {
         setLoading(true);
         const [resLeitos, resPacientes] = await Promise.all([
-          api.get('/api/leitos'),
+          api.get('/bed/leitos'),
           api.get('/api/pacientes')
         ]);
         setLeitos(Array.isArray(resLeitos.data) ? resLeitos.data : []);
@@ -52,27 +52,19 @@ const Beds = () => {
     fetchData();
   }, [refreshKey]);
 
-  const handleOpenLeitoModal = () => {
-    setOpenLeitoModal(true);
-  };
-
-  const handleCloseLeitoModal = () => {
-    setOpenLeitoModal(false);
-  };
+  const handleOpenLeitoModal = () => setOpenLeitoModal(true);
+  const handleCloseLeitoModal = () => setOpenLeitoModal(false);
 
   const handleSaveLeito = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
     const payload = {
       codigo: formData.get('codigo'),
       ala: formData.get('ala').toUpperCase(),
       status: formData.get('status')
     };
-
     try {
-      // NOTA: Apenas POST é suportado pelo LeitoController.java do backend
-      await api.post('/api/leitos', payload);
+      await api.post('/bed/leitos', payload);
       setRefreshKey(old => old + 1);
       handleCloseLeitoModal();
     } catch (error) {
@@ -80,16 +72,27 @@ const Beds = () => {
     }
   };
 
-  // NOVO: Método para liberar leito ocupado diretamente via Backend
   const handleLiberarLeito = async (idLeito) => {
     if (window.confirm("Confirmar desocupação do leito e emissão de alta lógica?")) {
       try {
-        // Rota mapeada ao @PostMapping("/{id}/liberar") do LeitoController
-        await api.post(`/api/leitos/${idLeito}/liberar`);
+        await api.post(`/bed/leitos/${idLeito}/liberar`);
         alert("Leito desocupado e higienizado com sucesso!");
         setRefreshKey(old => old + 1);
       } catch (error) {
         alert("Erro ao tentar liberar leito.");
+      }
+    }
+  };
+
+  // ✅ NOVO: Marcar leito higienizado como livre
+  const handleHigienizarLeito = async (idLeito) => {
+    if (window.confirm("Confirmar que o leito foi higienizado e está pronto para uso?")) {
+      try {
+        await api.post(`/bed/leitos/${idLeito}/higienizar`);
+        alert("Leito marcado como livre!");
+        setRefreshKey(old => old + 1);
+      } catch (error) {
+        alert("Erro ao marcar leito como livre.");
       }
     }
   };
@@ -112,15 +115,11 @@ const Beds = () => {
       alert("Por favor, selecione um paciente cadastrado.");
       return;
     }
-
     const formData = new FormData(e.currentTarget);
     const diagnostico = formData.get('diagnostico') || 'Admissão Hospitalar';
-
     try {
-      // Mapeado para o Prontuário que gerencia a transação distribuída síncrona
-      const url = `/api/prontuarios/internar?pacienteId=${patientValue.id}&leitoId=${selectedLeito.id}&diagnostico=${encodeURIComponent(diagnostico)}`;
+      const url = `/med/api/prontuarios/internar?pacienteId=${patientValue.id}&leitoId=${selectedLeito.id}&diagnostico=${encodeURIComponent(diagnostico)}`;
       await api.post(url);
-      
       alert("Internamento efetuado e registado no Prontuário!");
       setRefreshKey(old => old + 1);
       handleCloseInternacao();
@@ -151,8 +150,8 @@ const Beds = () => {
           const config = getStatusConfig(leito.status);
           const isLivre = leito.status === 'LIVRE';
           const isOcupado = leito.status === 'OCUPADO';
+          const isHigienizacao = leito.status === 'HIGIENIZACAO';
 
-          // NOVO: Cruza informações para descobrir o doente internado
           const pacienteNome = isOcupado 
             ? (pacientes.find(p => p.id === leito.pacienteId)?.nome || "Paciente Identificado") 
             : null;
@@ -163,7 +162,7 @@ const Beds = () => {
                 height: '100%', 
                 display: 'flex', 
                 flexDirection: 'column', 
-                borderTop: `5px solid ${isLivre ? '#2e7d32' : leito.status === 'OCUPADO' ? '#d32f2f' : '#ed6c02'}`,
+                borderTop: `5px solid ${isLivre ? '#2e7d32' : isOcupado ? '#d32f2f' : isHigienizacao ? '#0288d1' : '#ed6c02'}`,
                 boxShadow: 3
               }}>
                 <CardContent sx={{ flexGrow: 1 }}>
@@ -183,12 +182,21 @@ const Beds = () => {
 
                   <Divider sx={{ my: 1.5 }} />
 
-                  {/* EXIBIÇÃO EM TEMPO REAL DO OCUPANTE */}
                   {isOcupado && (
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2, bgcolor: '#fff5f5', p: 1, borderRadius: 1 }}>
                       <PersonIcon color="error" fontSize="small" />
                       <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#c62828' }}>
                         Ocupante: {pacienteNome}
+                      </Typography>
+                    </Stack>
+                  )}
+
+                  {/* ✅ NOVO: Mensagem informativa para leitos em higienização */}
+                  {isHigienizacao && (
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2, bgcolor: '#e3f2fd', p: 1, borderRadius: 1 }}>
+                      <NoCrashIcon color="info" fontSize="small" />
+                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#0277bd' }}>
+                        Aguardando higienização
                       </Typography>
                     </Stack>
                   )}
@@ -199,11 +207,15 @@ const Beds = () => {
                         Internar Paciente
                       </Button>
                     )}
-                    
-                    {/* NOVO: Botão de Ação para desocupar leitos de forma dinâmica */}
                     {isOcupado && (
                       <Button size="small" variant="contained" color="warning" onClick={() => handleLiberarLeito(leito.id)}>
                         Liberar Leito
+                      </Button>
+                    )}
+                    {/* ✅ NOVO: Botão para marcar leito higienizado como livre */}
+                    {isHigienizacao && (
+                      <Button size="small" variant="contained" color="info" onClick={() => handleHigienizarLeito(leito.id)}>
+                        Marcar como Livre
                       </Button>
                     )}
                   </Stack>

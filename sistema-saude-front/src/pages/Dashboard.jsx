@@ -24,7 +24,7 @@ const Dashboard = () => {
         const [resTriagens, resPacientes, resLeitos] = await Promise.all([
           api.get('/tri/triagens'),
           api.get('/api/pacientes'),
-          api.get('/api/leitos').catch(() => ({ data: [] })) // Fallback seguro caso o bed-service não tenha dados
+          api.get('/bed/leitos').catch(() => ({ data: [] })) // Fallback seguro caso o bed-service não tenha dados
         ]);
         setTriagens(Array.isArray(resTriagens.data) ? resTriagens.data : []);
         setPacientes(Array.isArray(resPacientes.data) ? resPacientes.data : []);
